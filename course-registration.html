@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImpedeX — Course Registration</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="auth-page">
+    <nav class="navbar">
+      <a href="index.html" class="logo">
+        <svg class="logo-mark" viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="var(--primary)"></circle><circle cx="24" cy="19" r="6" fill="#fff"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"></path><path d="M24 15a9 9 0 0 1 9 9" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"></path></svg>
+        <span>Impede<span class="burnt-orange">X</span></span>
+      </a>
+      <a href="javascript:history.back()" class="nav-back" title="Go back"><i class="fas fa-arrow-left"></i> Back</a>
+    </nav>
+
+    <div class="auth-wrapper">
+      <div class="auth-card wide-card">
+        <div class="breadcrumb-bar">
+          <div>
+            <p class="breadcrumb">
+              Course Registration
+              <i class="fas fa-chevron-right" style="font-size: 1rem"></i>
+              Select Session
+              <i class="fas fa-chevron-right" style="font-size: 1rem"></i>
+              <span>Register Courses</span>
+            </p>
+            <h2><i class="fas fa-book-open-reader accent"></i> Course Registration</h2>
+          </div>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            id="addBorrowBtn"
+            onclick="toggleElectives()"
+          >
+            <i class="fas fa-plus"></i> Add/Borrow &amp; Carry-Over
+          </button>
+        </div>
+
+        <div class="session-info-bar">
+          <div class="session-chip">
+            <i class="fas fa-user-graduate"></i>
+            <span>Student:</span> <strong id="courseStudentName">—</strong>
+          </div>
+          <div class="session-chip">
+            <i class="fas fa-id-card"></i>
+            <span>Matric:</span> <strong id="courseStudentMatric">—</strong>
+          </div>
+          <div class="session-chip">
+            <i class="fas fa-layer-group"></i>
+            <span>Level:</span> <strong id="courseStudentLevel">—</strong>
+          </div>
+          <div class="session-chip">
+            <i class="fas fa-calendar"></i>
+            <span>Session:</span> <strong id="courseStudentSession">—</strong>
+          </div>
+        </div>
+
+        <div class="reg-hint-box">
+          <i class="fas fa-circle-info"></i>
+          <p>
+            Tick the box next to each course you want to register for.
+            Compulsory courses are the core courses for your level; use
+            <strong>Add/Borrow &amp; Carry-Over</strong> below to also pick elective or
+            carry-over courses from previous levels. Maximum load is <strong>24 units</strong> per
+            session.
+          </p>
+        </div>
+
+        <form id="courseRegForm" novalidate>
+          <div class="course-card">
+            <div class="course-card-header">
+              <h3><i class="fas fa-clipboard-check"></i> Register Courses</h3>
+              <span class="unit-counter" id="unitCounter"
+                ><i class="fas fa-layer-group"></i> 0 of 24 units</span
+              >
+            </div>
+
+            <div class="table-wrap">
+              <table class="course-table" id="compulsoryTable">
+                <thead>
+                  <tr>
+                    <th>Register</th>
+                    <th>Course Code</th>
+                    <th>Course Title</th>
+                    <th>Unit</th>
+                    <th>Type</th>
+                  </tr>
+                </thead>
+                <tbody id="compulsoryTbody"></tbody>
+              </table>
+            </div>
+
+            <div class="elective-section hidden" id="electiveSection">
+              <h3
+                style="
+                  margin: 2.4rem 0 1.2rem;
+                  font-size: 1.6rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.8rem;
+                "
+              >
+                <i class="fas fa-layer-group" style="color: var(--accent)"></i>
+                Elective / Borrowed Courses
+              </h3>
+              <div class="table-wrap">
+                <table class="course-table" id="electiveTable">
+                  <thead>
+                    <tr>
+                      <th>Register</th>
+                      <th>Course Code</th>
+                      <th>Course Title</th>
+                      <th>Unit</th>
+                      <th>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody id="electiveTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="carryover-section hidden" id="carryoverSection">
+              <h3 style="margin: 2.4rem 0 1.2rem; font-size: 1.6rem; display: flex; align-items: center; gap: 0.8rem;">
+                <i class="fas fa-rotate-left" style="color: var(--warning)"></i>
+                Carry-Over Courses
+              </h3>
+              <p style="color: var(--text-muted); font-size: 1.3rem; margin-bottom: 1.2rem">
+                Select courses from previous levels that you need to retake.
+              </p>
+              <div class="filter-bar" style="margin-bottom: 1.2rem">
+                <div class="filter-group" style="flex:1">
+                  <select id="carryoverLevelFilter" class="search-input" onchange="loadCarryOverCourses()">
+                    <option value="">-- Select Level to Browse --</option>
+                  </select>
+                  <i class="fas fa-graduation-cap filter-icon"></i>
+                </div>
+              </div>
+              <div class="table-wrap" id="carryoverCourseList"></div>
+              <div class="table-wrap" style="margin-top: 1.2rem">
+                <h4 style="font-size: 1.4rem; margin-bottom: 0.8rem"><i class="fas fa-check-double"></i> Selected Carry-Over Courses</h4>
+                <table class="course-table" id="carryoverTable">
+                  <thead>
+                    <tr>
+                      <th>Remove</th>
+                      <th>Course Code</th>
+                      <th>Course Title</th>
+                      <th>Unit</th>
+                      <th>Level</th>
+                    </tr>
+                  </thead>
+                  <tbody id="carryoverTbody"></tbody>
+                </table>
+                <p class="empty-state hidden" id="carryoverEmpty">No carry-over courses selected yet.</p>
+              </div>
+            </div>
+
+            <div class="course-card-footer">
+              <button
+                type="submit"
+                class="btn btn-primary"
+                id="registerCoursesBtn"
+              >
+                <i class="fas fa-paper-plane"></i> Register Courses
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Success Modal (shown after successful registration) -->
+    <div class="modal-overlay hidden" id="examSelectModal">
+      <div class="modal-box wide-modal">
+        <div class="modal-icon success">
+          <i class="fas fa-circle-check"></i>
+        </div>
+        <h3>You have successfully registered your courses!</h3>
+        <button
+          type="button"
+          class="btn btn-primary full-btn"
+          onclick="proceedToBiometric()"
+        >
+          <i class="fas fa-fingerprint"></i> Enroll Biometrics
+        </button>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

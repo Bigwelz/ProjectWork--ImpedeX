@@ -1,0 +1,257 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImpedeX — Student Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="student-body">
+
+    <!-- ===== TOP NAVBAR ===== -->
+    <nav class="topnav">
+      <a href="index.html" class="topnav-logo">
+        <svg class="logo-mark" viewBox="0 0 48 48" width="28" height="28" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#e2e8f0"></circle><circle cx="24" cy="19" r="6" fill="#334155"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#334155" stroke-width="2.6" stroke-linecap="round"></path></svg>
+        <span class="topnav-brand">Impede<span class="burnt-orange">X</span></span>
+      </a>
+      <div class="topnav-right">
+        <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
+        <a href="register.html" class="btn btn-primary btn-nav">Get Started <i class="fas fa-arrow-right"></i></a>
+      </div>
+      <div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+    </nav>
+
+    <!-- ===== SIDEBAR + MAIN ===== -->
+    <div class="student-layout">
+      <!-- Sidebar -->
+      <aside class="student-sidebar" id="sidebar">
+        <div class="sidebar-section-label">MAIN MENU</div>
+        <nav class="student-sidebar-nav">
+          <a href="student-dashboard.html" class="ss-nav-item active">
+            <i class="fas fa-th-large"></i> Dashboard
+          </a>
+          <a href="course-registration.html" class="ss-nav-item">
+            <i class="fas fa-book-open"></i> Course Registration
+          </a>
+          <a href="examinations.html" class="ss-nav-item">
+            <i class="fas fa-file-alt"></i> Examinations
+          </a>
+        </nav>
+        <div class="sidebar-bottom">
+          <a href="#" class="ss-nav-item" onclick="openProfileSettings(); return false;">
+            <i class="fas fa-user-circle"></i> Profile Settings
+          </a>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="student-main">
+        <!-- Greeting Header -->
+        <div class="sm-header">
+          <div>
+            <h1 class="sm-greeting" id="smGreeting">Good morning</h1>
+            <p class="sm-matric">Matric: <strong id="smMatric">—</strong></p>
+          </div>
+          <div class="sm-header-right">
+            <div class="sm-bell-wrap">
+              <button class="sm-bell" title="Notifications" onclick="toggleNotifications()">
+                <i class="fas fa-bell"></i>
+                <span class="sm-bell-badge hidden" id="smNotifBadge">0</span>
+              </button>
+              <div class="sm-notif-dropdown hidden" id="smNotifDropdown">
+                <div class="sm-notif-header">
+                  <h4>Notifications</h4>
+                  <button type="button" class="sm-notif-clear" onclick="clearNotifications()">Clear all</button>
+                </div>
+                <div class="sm-notif-list" id="smNotifList">
+                  <p class="sm-notif-empty">No new notifications.</p>
+                </div>
+              </div>
+            </div>
+            <div class="sm-avatar" id="smAvatar" onclick="openProfileSettings()" style="cursor:pointer" title="Profile Settings">
+              <img id="smPhoto" src="" alt="" />
+              <i class="fas fa-user" id="smPhotoFallback"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="sm-stat-cards">
+          <div class="sm-stat-card">
+            <div class="sm-sc-top">
+              <span class="sm-sc-label">Next Exam</span>
+              <span class="sm-sc-icon blue"><i class="fas fa-calendar-check"></i></span>
+            </div>
+            <div class="sm-sc-value" id="smNextExam">—</div>
+            <div class="sm-sc-sub" id="smNextExamSub">No exam scheduled</div>
+          </div>
+          <div class="sm-stat-card">
+            <div class="sm-sc-top">
+              <span class="sm-sc-label">Registered Courses</span>
+              <span class="sm-sc-icon blue"><i class="fas fa-book-open"></i></span>
+            </div>
+            <div class="sm-sc-value" id="smRegCourses">0</div>
+            <div class="sm-sc-sub" id="smRegUnits">Total 0 Units</div>
+          </div>
+          <div class="sm-stat-card">
+            <div class="sm-sc-top">
+              <span class="sm-sc-label">Biometric Status</span>
+              <span class="sm-sc-icon green"><i class="fas fa-shield-halved"></i></span>
+            </div>
+            <div class="sm-sc-value" id="smBioStatus">Pending</div>
+            <div class="sm-sc-sub" id="smBioDate">Not yet enrolled</div>
+          </div>
+        </div>
+
+        <!-- Upcoming Exam + Recent Activity -->
+        <div class="sm-bottom-grid">
+          <!-- Upcoming Examination Card -->
+          <div class="sm-exam-card">
+            <div class="sm-exam-left">
+              <span class="sm-exam-badge">UPCOMING EXAMINATION</span>
+              <h2 class="sm-exam-code" id="smExamCode">—</h2>
+              <p class="sm-exam-title" id="smExamTitle">No upcoming exam</p>
+              <div class="sm-exam-details">
+                <span><i class="fas fa-calendar-day"></i> <span id="smExamDate">—</span></span>
+                <span><i class="fas fa-clock"></i> <span id="smExamTime">—</span></span>
+              </div>
+              <div class="sm-exam-details">
+                <span><i class="fas fa-location-dot"></i> <span id="smExamHall">—</span></span>
+              </div>
+            </div>
+            <div class="sm-exam-right">
+              <div class="sm-phone-mock">
+                <div class="sm-phone-frame">
+                  <div class="sm-phone-header">
+                    <span class="sm-phone-brand">IMPEDEX</span>
+                    <span class="sm-phone-sub">Exam Summary</span>
+                  </div>
+                  <div class="sm-phone-body">
+                    <div class="sm-phone-remaining">
+                      <span class="sm-phone-count" id="smExamsRemaining">0</span>
+                      <span class="sm-phone-label">Exams Left</span>
+                    </div>
+                    <div class="sm-phone-completed">
+                      <span class="sm-phone-count" id="smExamsCompleted">0</span>
+                      <span class="sm-phone-label">Completed</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Activity -->
+          <div class="sm-activity">
+            <div class="sm-activity-header">
+              <h3>Recent Activity</h3>
+              <div class="sm-activity-actions">
+                <button type="button" class="sm-view-all" onclick="clearActivity()">Clear All</button>
+                <a href="examinations.html" class="sm-view-all">View All</a>
+              </div>
+            </div>
+            <div class="sm-activity-list" id="smActivityList">
+              <p style="color: var(--text-muted); font-size: 1.4rem; padding: 1.2rem 0;">No recent activity.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ===== PROFILE SETTINGS MODAL ===== -->
+    <div class="modal-overlay hidden" id="profileSettingsModal">
+      <div class="modal-box settings-modal">
+        <div class="modal-head">
+          <h3><i class="fas fa-user-cog"></i> Profile Settings</h3>
+          <button type="button" class="modal-close" onclick="closeProfileSettings()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="settings-photo">
+          <div class="settings-avatar" id="settingsAvatar">
+            <img id="settingsPhoto" src="" alt="Profile photo" />
+            <i class="fas fa-user" id="settingsPhotoFallback"></i>
+          </div>
+          <div class="settings-photo-actions">
+            <label class="btn btn-outline btn-sm">
+              <i class="fas fa-upload"></i> Change Photo
+              <input type="file" id="settingsPhotoInput" accept="image/*" hidden />
+            </label>
+            <button type="button" class="btn btn-outline btn-sm" onclick="removeSettingsPhoto()">
+              <i class="fas fa-trash"></i> Remove
+            </button>
+          </div>
+        </div>
+        <div class="settings-form">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" id="setFirstName" />
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="setLastName" />
+          </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="setEmail" />
+          </div>
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input type="tel" id="setPhone" />
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <input type="text" id="setDepartment" />
+          </div>
+          <div class="form-group">
+            <label>Faculty</label>
+            <input type="text" id="setFaculty" />
+          </div>
+          <div class="form-group">
+            <label>Level</label>
+            <select id="setLevel">
+              <option>100 Level</option>
+              <option>200 Level</option>
+              <option>300 Level</option>
+              <option>400 Level</option>
+              <option>500 Level</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Academic Session</label>
+            <input type="text" id="setSession" />
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button type="button" class="btn btn-outline" onclick="closeProfileSettings()">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary" onclick="saveProfileSettings()">
+            <i class="fas fa-save"></i> Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="site-footer">
+      <div class="footer-left">
+        <h3 class="footer-title">IFT</h3>
+        <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#">Help Center</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Contact Support</a>
+      </div>
+      <div class="footer-right">
+        &copy; 2026 ImpedeX Security. All rights reserved.
+      </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script>if(!isLoggedIn("student")){window.location.href="login.html";}</script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

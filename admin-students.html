@@ -1,0 +1,366 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImpedeX — Student Management</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/admin.css" />
+  </head>
+  <body class="student-body">
+
+  <!-- TOP NAVBAR -->
+  <nav class="topnav">
+    <a href="admin-dashboard.html" class="topnav-logo">
+      <svg class="logo-mark" viewBox="0 0 48 48" width="28" height="28" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#e2e8f0"></circle><circle cx="24" cy="19" r="6" fill="#334155"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#334155" stroke-width="2.6" stroke-linecap="round"></path></svg>
+      <span class="topnav-brand">Impede<span class="burnt-orange">X</span> Admin</span>
+    </a>
+    <div class="topnav-right">
+      <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
+  </nav>
+
+  <!-- SIDEBAR + MAIN -->
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="sidebar-section-label">ADMIN MENU</div>
+      <nav class="admin-sidebar-nav">
+        <a href="admin-dashboard.html" class="admin-nav-item">
+          <i class="fas fa-th-large"></i> Dashboard
+        </a>
+        <a href="admin-students.html" class="admin-nav-item active">
+          <i class="fas fa-users"></i> Students
+        </a>
+        <a href="admin-courses.html" class="admin-nav-item">
+          <i class="fas fa-book-open"></i> Courses
+        </a>
+        <a href="admin-reports.html" class="admin-nav-item">
+          <i class="fas fa-chart-column"></i> Reports
+        </a>
+        <a href="admin-verify.html" class="admin-nav-item">
+          <i class="fas fa-fingerprint"></i> Exam-Day Verify
+        </a>
+      </nav>
+      <div class="sidebar-bottom">
+        <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
+          <i class="fas fa-right-from-bracket"></i> Logout
+        </a>
+      </div>
+    </aside>
+    <div class="admin-sidebar-overlay" onclick="toggleAdminSidebar()"></div>
+
+    <!-- Main Content -->
+    <main class="student-main">
+      <div class="sm-header">
+        <div>
+          <h1>Student Management</h1>
+          <p style="color: var(--text-muted); font-size: 1.3rem;">Manage registered students and biometric enrollment</p>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('addStudentModal').classList.remove('hidden')">
+          <i class="fas fa-user-plus"></i> Add Student
+        </button>
+      </div>
+
+      <!-- Filters -->
+      <div class="dash-card filter-bar">
+        <div class="filter-group">
+          <input
+            type="text"
+            placeholder="Search by name or matric no..."
+            class="search-input"
+            oninput="filterStudents(this.value)"
+          />
+          <i class="fas fa-search filter-icon"></i>
+        </div>
+        <div class="filter-group">
+          <select class="filter-select">
+            <option>All Levels</option>
+            <option>100 Level</option>
+            <option>200 Level</option>
+            <option>300 Level</option>
+            <option>400 Level</option>
+            <option>500 Level</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <select class="filter-select">
+            <option>All Status</option>
+            <option>Verified</option>
+            <option>Pending</option>
+            <option>Failed</option>
+          </select>
+        </div>
+        <button class="btn btn-outline" onclick="exportCSV()">
+          <i class="fas fa-file-export"></i> Export CSV
+        </button>
+      </div>
+
+      <!-- Students Table -->
+      <div class="dash-card mt-1">
+        <div class="dash-card-header">
+          <h3>
+            <i class="fas fa-users"></i> Registered Students
+            <span class="rec-count" id="studentRecCount">(0 records)</span>
+          </h3>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table" id="studentTable">
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    id="selectAll"
+                    onchange="toggleAll(this)"
+                  />
+                </th>
+                <th>Matric No.</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Level</th>
+                <th>Verification</th>
+                <th>Seat</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="studentTbody">
+              <!-- Populated live from the real local student database — see the
+                   script at the bottom of this page. No sample/fake rows. -->
+            </tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <div class="pagination">
+          <button class="pg-btn" disabled>
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="pg-btn active">1</button>
+          <button class="pg-btn" disabled><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer" style="margin-top: 2rem">
+    <div class="footer-left">
+      <h3 class="footer-title">IFT</h3>
+      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+    </div>
+    <div class="footer-links">
+      <a href="#">Help Center</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+    <div class="footer-right">
+      &copy; 2026 ImpedeX Security. All rights reserved.
+    </div>
+  </footer>
+
+    <!-- View Student Modal -->
+    <div class="modal-overlay hidden" id="viewModal">
+      <div class="modal-box">
+        <div
+          class="modal-close"
+          onclick="document.getElementById('viewModal').classList.add('hidden')"
+        >
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="modal-icon info"><i class="fas fa-user-circle"></i></div>
+        <h3 id="modalStudentName">Student Name</h3>
+        <p id="modalStudentSub">—</p>
+        <div class="modal-detail-grid">
+          <div><span>Email</span><strong id="modalStudentEmail">—</strong></div>
+          <div><span>Phone</span><strong id="modalStudentPhone">—</strong></div>
+          <div><span>Face enrolled</span><strong id="modalStudentFace">—</strong></div>
+          <div><span>Fingerprint enrolled</span><strong id="modalStudentFp">—</strong></div>
+          <div><span>Courses registered</span><strong id="modalStudentCourses">—</strong></div>
+          <div><span>Seat</span><strong id="modalStudentSeat">—</strong></div>
+        </div>
+        <button
+          class="btn btn-outline full-btn"
+          onclick="document.getElementById('viewModal').classList.add('hidden')"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Student Modal -->
+    <div class="modal-overlay hidden" id="addStudentModal">
+      <div class="modal-box wide-modal">
+        <div
+          class="modal-close"
+          onclick="
+            document.getElementById('addStudentModal').classList.add('hidden')
+          "
+        >
+          <i class="fas fa-times"></i>
+        </div>
+        <h3><i class="fas fa-user-plus"></i> Add New Student</h3>
+        <div class="form-grid mt-1">
+          <div class="form-group">
+            <label>First Name</label
+            ><input type="text" id="addStuFirst" placeholder="First name" />
+          </div>
+          <div class="form-group">
+            <label>Last Name</label
+            ><input type="text" id="addStuLast" placeholder="Last name" />
+          </div>
+          <div class="form-group">
+            <label>Matric No.</label
+            ><input type="text" id="addStuMatric" placeholder="e.g. 20211292002" pattern="\d{11}" maxlength="11" inputmode="numeric" />
+          </div>
+          <div class="form-group">
+            <label>Email</label
+            ><input type="email" id="addStuEmail" placeholder="Email address" />
+          </div>
+          <div class="form-group">
+            <label>Level</label>
+            <select id="addStuLevel">
+              <option>100 Level</option>
+              <option>200 Level</option>
+              <option>300 Level</option>
+              <option selected>400 Level</option>
+              <option>500 Level</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Department</label
+            ><input type="text" id="addStuDept" value="Information Technology" />
+          </div>
+        </div>
+        <p style="font-size: 1.2rem; color: var(--text-muted); margin-top: 1rem">
+          <i class="fas fa-circle-info"></i> A temporary password will be generated —
+          give it to the student and ask them to change it on first login (or use
+          "Forgot password?").
+        </p>
+        <div class="form-btn-row mt-1">
+          <button
+            class="btn btn-outline"
+            onclick="
+              document.getElementById('addStudentModal').classList.add('hidden')
+            "
+          >
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            onclick="adminAddStudent()"
+          >
+            <i class="fas fa-save"></i> Save Student
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      function toggleAdminSidebar() {
+        document.getElementById("sidebar").classList.toggle("open");
+        document.querySelector(".admin-sidebar-overlay").classList.toggle("open");
+      }
+      if (!isLoggedIn("admin")) window.location.href = "admin-login.html";
+    </script>
+    <script>
+      async function renderAdminStudentsTable() {
+        const tbody = document.getElementById("studentTbody");
+        let students;
+        try {
+          students = await apiAdminStudents();
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2.4rem; color:var(--text-muted)">${err.message}</td></tr>`;
+          return;
+        }
+        document.getElementById("studentRecCount").textContent = `(${students.length} record${students.length === 1 ? "" : "s"})`;
+
+        if (!students.length) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2.4rem; color:var(--text-muted)">No students registered yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = students
+          .map((s) => {
+            const name = `${s.firstName || ""} ${s.lastName || ""}`.trim() || "(no name)";
+            const seat = s.seat ? `${s.seat.hall || "Hall pending"} / Seat ${s.seat.seat}` : "—";
+            let status = "Pending";
+            let statusClass = "warning";
+            if (s.faceDescriptor && s.fingerprintCredentialId) { status = "Biometrics Enrolled"; statusClass = "verified"; }
+            else if (s.faceDescriptor || s.fingerprintCredentialId) { status = "Partial Enrollment"; statusClass = "warning"; }
+            return `<tr data-matric="${s.matric}">
+              <td><input type="checkbox" /></td>
+              <td>${s.matric}</td>
+              <td>${name}</td>
+              <td>${s.department || "—"}</td>
+              <td>${(s.level || "—").replace(" Level", "")}</td>
+              <td><span class="status-badge ${statusClass}">${status}</span></td>
+              <td>${seat}</td>
+              <td class="action-cell">
+                <button class="act-btn view" onclick="viewStudentByMatric('${s.matric}')"><i class="fas fa-eye"></i></button>
+                <a class="act-btn edit" href="admin-verify.html?matric=${s.matric}" title="Exam-day verify"><i class="fas fa-fingerprint"></i></a>
+                <button class="act-btn delete" onclick="deleteStudent(this)"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>`;
+          })
+          .join("");
+      }
+
+      async function viewStudentByMatric(matric) {
+        let s;
+        try {
+          s = await apiAdminStudent(matric);
+        } catch (err) {
+          showToast(err.message || "Could not load student.", "danger");
+          return;
+        }
+        viewStudent(`${s.firstName || ""} ${s.lastName || ""}`.trim() || "(no name)");
+        document.getElementById("modalStudentSub").innerHTML = `${s.matric} &bull; ${s.level || "—"} &bull; ${s.department || "—"}`;
+        document.getElementById("modalStudentEmail").textContent = s.email || "—";
+        document.getElementById("modalStudentPhone").textContent = s.phone || "—";
+        document.getElementById("modalStudentFace").textContent = s.faceDescriptor ? "Yes" : "No";
+        document.getElementById("modalStudentFp").textContent = s.fingerprintCredentialId ? "Yes" : "No";
+        document.getElementById("modalStudentCourses").textContent = (s.registeredCourses || []).length;
+        document.getElementById("modalStudentSeat").textContent = s.seat ? `${s.seat.hall || "Pending"} / Row ${s.seat.row} / Seat ${s.seat.seat}` : "—";
+      }
+
+      async function adminAddStudent() {
+        const matric = document.getElementById("addStuMatric").value.trim();
+        if (!isValidMatric(matric)) {
+          showToast("Matric number must be exactly 11 digits.", "danger");
+          return;
+        }
+        const payload = {
+          matric,
+          firstName: document.getElementById("addStuFirst").value.trim(),
+          lastName: document.getElementById("addStuLast").value.trim(),
+          email: document.getElementById("addStuEmail").value.trim(),
+          level: document.getElementById("addStuLevel").value,
+          department: document.getElementById("addStuDept").value.trim(),
+        };
+        try {
+          const data = await apiAdminAddStudent(payload);
+          document.getElementById("addStudentModal").classList.add("hidden");
+          document.getElementById("addStuFirst").value = "";
+          document.getElementById("addStuLast").value = "";
+          document.getElementById("addStuMatric").value = "";
+          document.getElementById("addStuEmail").value = "";
+          await renderAdminStudentsTable();
+          showToast(`Student added. Temporary password: ${data.tempPassword}`, "success");
+        } catch (err) {
+          console.error(err);
+          showToast(err.message || "Could not add student.", "danger");
+        }
+      }
+
+      renderAdminStudentsTable();
+    </script>
+  </body>
+</html>

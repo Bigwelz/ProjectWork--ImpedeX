@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EIPS — Student Login</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="auth-page">
+    <nav class="navbar">
+      <a href="index.html" class="logo">
+        <svg class="logo-mark" viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="var(--primary)"></circle><circle cx="24" cy="19" r="6" fill="#fff"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"></path><path d="M24 15a9 9 0 0 1 9 9" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"></path></svg>
+        <span>Impede<span class="burnt-orange">X</span></span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html"><i class="fas fa-arrow-left"></i> Back</a></li>
+      </ul>
+      <div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+    </nav>
+
+    <div class="auth-wrapper">
+      <div class="auth-card auth-card-animated">
+        <!-- Sliding tabs -->
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab active" id="tabLogin" role="tab">
+            <i class="fas fa-right-to-bracket"></i> Login
+          </button>
+          <button type="button" class="auth-tab" id="tabRegister" role="tab">
+            <i class="fas fa-user-plus"></i> Register
+          </button>
+          <span class="tab-slider" aria-hidden="true"></span>
+        </div>
+
+        <!-- Sliding panels -->
+        <div class="auth-slider">
+          <div class="auth-panels" id="authPanels">
+            <!-- ===== PANEL 1 : LOGIN ===== -->
+            <div class="auth-panel" id="panelLogin">
+              <div class="auth-header">
+                <i class="fas fa-right-to-bracket"></i>
+                <h2>Student Login</h2>
+                <p>Enter your credentials to access exam verification</p>
+              </div>
+
+              <form id="loginForm" novalidate>
+                <div class="form-group">
+                  <label><i class="fas fa-id-card"></i> Matric Number</label>
+                  <input
+                    type="text"
+                    id="matricNo"
+                    placeholder="Enter your 11-digit matric number"
+                    pattern="\d{11}"
+                    maxlength="11"
+                    inputmode="numeric"
+                    title="Matric number must be exactly 11 digits"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label><i class="fas fa-lock"></i> Password</label>
+                  <div class="input-eye">
+                    <input
+                      type="password"
+                      id="loginPass"
+                      placeholder="Enter your password"
+                      required
+                    />
+                    <i
+                      class="fas fa-eye toggle-eye"
+                      onclick="toggleEye('loginPass', this)"
+                    ></i>
+                  </div>
+                </div>
+
+                <div class="form-remember">
+                  <label class="checkbox-label">
+                    <input type="checkbox" /> Remember me
+                  </label>
+                  <a href="forgot-password.html" class="forgot-link">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary full-btn" id="loginBtn">
+                  <i class="fas fa-right-to-bracket"></i> Login
+                </button>
+              </form>
+
+              <div class="divider"><span>or</span></div>
+
+              <!-- <div class="auth-info-box">
+                <i class="fas fa-circle-info"></i>
+                <p>
+                  Use your 11-digit <strong>Matric Number</strong> (e.g.
+                  20211292002) and the password you set during registration.
+                </p>
+              </div> -->
+            </div>
+
+            <!-- ===== PANEL 2 : REGISTER (redirects to the real page) ===== -->
+            <div class="auth-panel" id="panelRegister">
+              <div class="auth-header">
+                <i class="fas fa-user-plus"></i>
+                <h2>Student Registration</h2>
+                <p>Create your account to access examination services</p>
+              </div>
+
+              <p class="register-pitch">
+                Registration is a short multi-step process: your personal and
+                academic details, then a live face capture that becomes your
+                biometric reference for exam day.
+              </p>
+
+              <a href="register.html" class="btn btn-primary full-btn">
+                <i class="fas fa-arrow-right"></i> Go to Registration Page
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Switch link under the panels -->
+        <div class="auth-footer-link" id="authFooterSwitch">
+          Don't have an account? <a href="#" id="switchToRegister">Register here</a>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

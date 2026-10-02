@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EIPS — Biometric Collection</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="auth-page">
+    <nav class="navbar">
+      <a href="index.html" class="logo">
+        <svg class="logo-mark" viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="var(--primary)"></circle><circle cx="24" cy="19" r="6" fill="#fff"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"></path><path d="M24 15a9 9 0 0 1 9 9" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"></path></svg>
+        <span>Impede<span class="burnt-orange">X</span></span>
+      </a>
+      <a href="javascript:history.back()" class="nav-back" title="Go back"><i class="fas fa-arrow-left"></i> Back</a>
+    </nav>
+
+    <div class="auth-wrapper">
+      <div class="auth-card wide-card">
+        <!-- Student Summary -->
+        <div class="student-summary-bar">
+          <div class="summary-avatar"><i class="fas fa-user-graduate"></i></div>
+          <div class="summary-info">
+            <h3 id="bioStudentName">—</h3>
+            <p id="bioStudentSub">—</p>
+          </div>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="verify-status-bar" id="verifyStatusBar">
+          <div class="vs-step done" id="vs1">
+            <i class="fas fa-circle-check"></i> Logged In
+          </div>
+          <div class="vs-line"></div>
+          <div class="vs-step active" id="vs2">
+            <i class="fas fa-camera"></i> Face Photo
+          </div>
+          <div class="vs-line"></div>
+          <div class="vs-step" id="vs3">
+            <i class="fas fa-circle"></i> Fingerprint
+          </div>
+          <div class="vs-line"></div>
+          <div class="vs-step" id="vs4">
+            <i class="fas fa-circle"></i> Complete
+          </div>
+        </div>
+
+        <!-- Face Capture Section -->
+        <div class="face-capture-box" id="faceSection">
+          <div class="auth-header">
+            <i class="fas fa-camera"></i>
+            <h2 style="font-size: 2rem">Face Photo Collection</h2>
+            <p>Position your face within the oval frame. The system will capture your photo for identity verification on exam day.</p>
+          </div>
+
+          <div class="camera-frame" id="bioFrame">
+            <video id="bioVideo" autoplay playsinline></video>
+            <div class="camera-overlay">
+              <div class="face-guide" id="faceGuide"></div>
+            </div>
+            <div class="scan-line" id="scanLine"></div>
+            <div class="camera-placeholder" id="bioPlaceholder">
+              <i class="fas fa-camera-rotate"></i>
+              <p>Click "Capture Photo" to start your camera</p>
+            </div>
+            <canvas id="bioCanvas" style="display:none"></canvas>
+          </div>
+
+          <p class="camera-hint">
+            <i class="fas fa-lightbulb"></i> Ensure your face is well-lit and centred in the oval frame.
+          </p>
+
+          <div class="camera-btns">
+            <button class="btn btn-primary" id="capturePhotoBtn" onclick="capturePhoto()">
+              <i class="fas fa-camera"></i> Capture Photo
+            </button>
+            <button class="btn btn-outline hidden" id="retakePhotoBtn" onclick="retakePhoto()">
+              <i class="fas fa-rotate"></i> Retake
+            </button>
+          </div>
+
+          <div class="verify-result hidden" id="faceResult">
+            <div class="vr-icon success">
+              <i class="fas fa-shield-check"></i>
+            </div>
+            <h3>Face Photo Captured</h3>
+            <p>Your photo has been captured successfully. You can retake if needed.</p>
+          </div>
+        </div>
+
+        <!-- Fingerprint Section (shown after face) -->
+        <div class="face-capture-box hidden" id="fingerprintSection" style="margin-top: 2.4rem">
+          <div class="auth-header">
+            <i class="fas fa-fingerprint"></i>
+            <h2 style="font-size: 2rem">Fingerprint Collection</h2>
+            <p>Use your device's fingerprint sensor (Windows Hello, Touch ID, or Android fingerprint) to enroll your fingerprint. This will be used to verify your identity on exam day.</p>
+          </div>
+          <div class="camera-btns">
+            <button class="btn btn-primary" id="enrollFpBtn" onclick="enrollFingerprintStep()">
+              <i class="fas fa-fingerprint"></i> Enroll Fingerprint
+            </button>
+          </div>
+          <p class="fp-status" id="fpStatus"></p>
+        </div>
+
+        <!-- Completion Section -->
+        <div class="face-capture-box hidden" id="completionSection" style="margin-top: 2.4rem">
+          <div class="verify-result" id="completionMsg">
+            <div class="vr-icon success">
+              <i class="fas fa-shield-check"></i>
+            </div>
+            <h3>Biometric Collection Complete!</h3>
+            <p style="max-width: 46rem">
+              Your face photo and fingerprint have been enrolled successfully.
+              On exam day, the admin will verify your identity using these biometrics
+              before allocating your seat.
+            </p>
+          </div>
+          <div class="camera-btns" style="margin-top: 2rem">
+            <a href="student-dashboard.html" class="btn btn-primary">
+              <i class="fas fa-check"></i> Done
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="js/biometrics.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

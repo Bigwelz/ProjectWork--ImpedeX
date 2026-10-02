@@ -1,0 +1,342 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImpedeX — Admin Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/admin.css" />
+  </head>
+  <body class="student-body">
+
+  <!-- TOP NAVBAR -->
+  <nav class="topnav">
+    <a href="admin-dashboard.html" class="topnav-logo">
+      <svg class="logo-mark" viewBox="0 0 48 48" width="28" height="28" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#e2e8f0"></circle><circle cx="24" cy="19" r="6" fill="#334155"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#334155" stroke-width="2.6" stroke-linecap="round"></path></svg>
+      <span class="topnav-brand">Impede<span class="burnt-orange">X</span> Admin</span>
+    </a>
+    <div class="topnav-right">
+      <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
+  </nav>
+
+  <!-- SIDEBAR + MAIN -->
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="sidebar-section-label">ADMIN MENU</div>
+      <nav class="admin-sidebar-nav">
+        <a href="admin-dashboard.html" class="admin-nav-item active">
+          <i class="fas fa-th-large"></i> Dashboard
+        </a>
+        <a href="admin-students.html" class="admin-nav-item">
+          <i class="fas fa-users"></i> Students
+        </a>
+        <a href="admin-courses.html" class="admin-nav-item">
+          <i class="fas fa-book-open"></i> Courses
+        </a>
+        <a href="admin-reports.html" class="admin-nav-item">
+          <i class="fas fa-chart-column"></i> Reports
+        </a>
+        <a href="admin-verify.html" class="admin-nav-item">
+          <i class="fas fa-fingerprint"></i> Exam-Day Verify
+        </a>
+      </nav>
+      <div class="sidebar-bottom">
+        <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
+          <i class="fas fa-right-from-bracket"></i> Logout
+        </a>
+      </div>
+    </aside>
+    <div class="admin-sidebar-overlay" onclick="toggleAdminSidebar()"></div>
+
+    <!-- Main Content -->
+    <main class="student-main">
+      <div class="sm-header">
+        <div>
+          <h1>Admin Dashboard</h1>
+          <p id="dashHeaderDate" style="color: var(--text-muted); font-size: 1.3rem;">—</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem">
+          <div class="live-indicator">
+            <span class="live-dot"></span> Live Monitoring
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="clearAllData()" title="Clear all data including activities, alerts, seats, and schedules"><i class="fas fa-trash-can"></i> Clear All Data</button>
+        </div>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="stat-cards">
+        <div class="stat-card card-blue">
+          <div class="sc-icon"><i class="fas fa-users"></i></div>
+          <div class="sc-info">
+            <h2 id="statTotalStudents">0</h2>
+            <p>Total Students</p>
+          </div>
+        </div>
+        <div class="stat-card card-green">
+          <div class="sc-icon"><i class="fas fa-check-double"></i></div>
+          <div class="sc-info">
+            <h2 id="statTotalVerifications">0</h2>
+            <p>Passed Verifications</p>
+          </div>
+        </div>
+        <div class="stat-card card-red">
+          <div class="sc-icon"><i class="fas fa-times-circle"></i></div>
+          <div class="sc-info">
+            <h2 id="statFailedVerifications">0</h2>
+            <p>Failed Verifications</p>
+          </div>
+        </div>
+        <div class="stat-card card-yellow">
+          <div class="sc-icon"><i class="fas fa-calendar-check"></i></div>
+          <div class="sc-info">
+            <h2 id="statExamsScheduled">0</h2>
+            <p>Exams Scheduled</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-content-grid">
+        <!-- Recent Activity -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <h3><i class="fas fa-history"></i> Recent Activities</h3>
+            <div style="display:flex;gap:0.6rem;align-items:center">
+              <button class="btn btn-outline btn-sm" onclick="clearActivitiesAndAlerts()" title="Clear all activities and alerts"><i class="fas fa-trash-can"></i> Clear</button>
+              <a href="admin-reports.html" class="view-all">View All</a>
+            </div>
+          </div>
+          <div class="activity-list" id="activityList">
+            <p style="color: var(--text-muted); padding: 1.2rem 0">Loading...</p>
+          </div>
+        </div>
+
+        <!-- Seat Allocation Summary -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <h3><i class="fas fa-chair"></i> Seat Allocation Summary</h3>
+          </div>
+          <div class="seat-summary-list" id="seatSummaryList">
+            <p style="color: var(--text-muted)">Loading...</p>
+          </div>
+          <button
+            class="btn-outline btn-full mt-1"
+            onclick="location.href = 'admin-reports.html'"
+          >
+            <i class="fas fa-sync-alt"></i> View Full Report
+          </button>
+        </div>
+
+        <!-- Verification Statistics -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <h3><i class="fas fa-chart-pie"></i> Verification Statistics</h3>
+          </div>
+          <div class="stats-donut-wrap">
+            <div
+              class="donut-chart"
+              id="statsDonut"
+              style="--pass: 0; --fail: 0"
+            >
+              <div class="donut-label">
+                <strong id="donutTotal">0</strong>
+                <small>Total</small>
+              </div>
+            </div>
+          </div>
+          <div class="stats-legend" id="statsLegend">
+            <p style="color: var(--text-muted)">Loading...</p>
+          </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <h3><i class="fas fa-bell"></i> Active Alerts</h3>
+            <span class="badge-count" id="alertsBadge">0</span>
+          </div>
+          <div class="alert-list" id="alertsList">
+            <p style="color: var(--text-muted)">Loading...</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer" style="margin-top: 2rem">
+    <div class="footer-left">
+      <h3 class="footer-title">IFT</h3>
+      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+    </div>
+    <div class="footer-links">
+      <a href="#">Help Center</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+    <div class="footer-right">
+      &copy; 2026 ImpedeX Security. All rights reserved.
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    function toggleAdminSidebar() {
+      document.getElementById("sidebar").classList.toggle("open");
+      document.querySelector(".admin-sidebar-overlay").classList.toggle("open");
+    }
+    if (!isLoggedIn("admin")) window.location.href = "admin-login.html";
+  </script>
+  <script>
+      function timeAgo(ts) {
+        const mins = Math.round((Date.now() - ts) / 60000);
+        if (mins < 1) return "just now";
+        if (mins < 60) return `${mins} min ago`;
+        const hrs = Math.round(mins / 60);
+        if (hrs < 24) return `${hrs} hr ago`;
+        return new Date(ts).toLocaleDateString();
+      }
+
+      async function renderDashboard() {
+        document.getElementById("dashHeaderDate").textContent =
+          new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+        const [stats, students, log, schedules] = await Promise.all([
+          apiAdminStats(),
+          apiAdminStudents(),
+          apiAdminLog(),
+          apiAdminSchedules(),
+        ]);
+
+        const passCount = stats.passed;
+        const failCount = stats.failed;
+        const examCount = stats.examsScheduled;
+        const totalChecks = passCount + failCount;
+
+        document.getElementById("statTotalStudents").textContent = stats.totalStudents;
+        document.getElementById("statTotalVerifications").textContent = passCount;
+        document.getElementById("statFailedVerifications").textContent = failCount;
+        document.getElementById("statExamsScheduled").textContent = examCount;
+
+        // Recent activity — real log entries, most recent first
+        const activityList = document.getElementById("activityList");
+        if (!log.length) {
+          activityList.innerHTML = `<p style="color: var(--text-muted); padding: 1.2rem 0">No verification activity yet. Activity will appear here once students are checked at Exam-Day Verify.</p>`;
+        } else {
+          activityList.innerHTML = log
+            .slice(0, 8)
+            .map((e) => {
+              const s = students.find((x) => x.matric === e.matric);
+              const name = s ? `${s.firstName || ""} ${s.lastName || ""}`.trim() || e.matric : e.matric;
+              const dotCls = e.result === "pass" ? "success" : e.result === "fail" ? "danger" : "warning";
+              return `<div class="activity-item">
+                <span class="act-dot ${dotCls}"></span>
+                <div class="act-info">
+                  <strong>${name} — ${e.matric}</strong>
+                  <span>${e.details}</span>
+                </div>
+                <span class="act-time">${timeAgo(e.time)}</span>
+              </div>`;
+            })
+            .join("");
+        }
+
+        // Seat allocation summary — real count of students seated per hall
+        const hallCounts = {};
+        students.forEach((s) => {
+          if (s.seat && s.seat.hall) hallCounts[s.seat.hall] = (hallCounts[s.seat.hall] || 0) + 1;
+        });
+        const seatSummary = document.getElementById("seatSummaryList");
+        const hallNames = Object.keys(hallCounts);
+        if (!hallNames.length) {
+          seatSummary.innerHTML = `<p style="color: var(--text-muted)">No seats allocated yet — seats are only assigned once the invigilator approves a student at the checkpoint on exam day.</p>`;
+        } else {
+          seatSummary.innerHTML = hallNames
+            .map((hall) => {
+              const count = hallCounts[hall];
+              const pct = Math.min(100, Math.round((count / 50) * 100));
+              return `<div class="ss-item">
+                <span class="ss-label"><i class="fas fa-building"></i> ${hall}</span>
+                <div class="ss-bar-wrap"><div class="ss-bar" style="width:${pct}%"></div></div>
+                <span>${count} / 50</span>
+              </div>`;
+            })
+            .join("");
+        }
+
+        // Verification statistics donut — real pass/fail split
+        const donut = document.getElementById("statsDonut");
+        const donutTotal = document.getElementById("donutTotal");
+        const legend = document.getElementById("statsLegend");
+        if (!totalChecks) {
+          donut.style.setProperty("--pass", 0);
+          donut.style.setProperty("--fail", 0);
+          donutTotal.textContent = "0";
+          legend.innerHTML = `<p style="color: var(--text-muted)">No checks performed yet.</p>`;
+        } else {
+          const passPct = ((passCount / totalChecks) * 100).toFixed(1);
+          const failPct = ((failCount / totalChecks) * 100).toFixed(1);
+          donut.style.setProperty("--pass", passPct);
+          donut.style.setProperty("--fail", failPct);
+          donutTotal.textContent = totalChecks;
+          legend.innerHTML = `
+            <div class="legend-row"><span class="dot green"></span> Passed <strong>${passCount} (${passPct}%)</strong></div>
+            <div class="legend-row"><span class="dot red"></span> Failed <strong>${failCount} (${failPct}%)</strong></div>
+          `;
+        }
+
+        // Alerts — real failed checks only
+        const alertsList = document.getElementById("alertsList");
+        const alertBadge = document.getElementById("alertsBadge");
+        const fails = log.filter((e) => e.result === "fail").slice(0, 5);
+        alertBadge.textContent = fails.length;
+        alertsList.innerHTML = fails.length
+          ? fails
+              .map(
+                (e) => `<div class="alert-item danger">
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                  <strong>${e.details}</strong>
+                  <span>${e.matric} • ${timeAgo(e.time)}</span>
+                </div>
+                <button class="btn-resolve" onclick="location.href='admin-verify.html?matric=${e.matric}'">Review</button>
+              </div>`
+              )
+              .join("")
+          : `<p style="color: var(--text-muted)">No alerts. Nothing has failed verification yet.</p>`;
+      }
+
+      async function clearActivitiesAndAlerts() {
+        if (!confirm("Clear all recent activities and alerts? This removes the entire verification log.")) return;
+        try {
+          await apiAdminClearLog();
+          showToast("Activities and alerts cleared.", "success");
+          renderDashboard();
+        } catch (err) {
+          showToast(err.message || "Could not clear activities.", "danger");
+        }
+      }
+
+      async function clearAllData() {
+        if (!confirm("Clear ALL data? This removes activities, alerts, seats, schedules, and carry-overs. This cannot be undone.")) return;
+        try {
+          await apiAdminClearAll();
+          showToast("All data cleared.", "success");
+          renderDashboard();
+        } catch (err) {
+          showToast(err.message || "Could not clear data.", "danger");
+        }
+      }
+
+      renderDashboard();
+    </script>
+  </body>
+</html>

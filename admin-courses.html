@@ -1,0 +1,431 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImpedeX — Course Catalog</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/admin.css" />
+  </head>
+  <body class="student-body">
+
+  <!-- TOP NAVBAR -->
+  <nav class="topnav">
+    <a href="admin-dashboard.html" class="topnav-logo">
+      <svg class="logo-mark" viewBox="0 0 48 48" width="28" height="28" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#e2e8f0"></circle><circle cx="24" cy="19" r="6" fill="#334155"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#334155" stroke-width="2.6" stroke-linecap="round"></path></svg>
+      <span class="topnav-brand">Impede<span class="burnt-orange">X</span> Admin</span>
+    </a>
+    <div class="topnav-right">
+      <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
+  </nav>
+
+  <!-- SIDEBAR + MAIN -->
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="sidebar-section-label">ADMIN MENU</div>
+      <nav class="admin-sidebar-nav">
+        <a href="admin-dashboard.html" class="admin-nav-item">
+          <i class="fas fa-th-large"></i> Dashboard
+        </a>
+        <a href="admin-students.html" class="admin-nav-item">
+          <i class="fas fa-users"></i> Students
+        </a>
+        <a href="admin-courses.html" class="admin-nav-item active">
+          <i class="fas fa-book-open"></i> Courses
+        </a>
+        <a href="admin-reports.html" class="admin-nav-item">
+          <i class="fas fa-chart-column"></i> Reports
+        </a>
+        <a href="admin-verify.html" class="admin-nav-item">
+          <i class="fas fa-fingerprint"></i> Exam-Day Verify
+        </a>
+      </nav>
+      <div class="sidebar-bottom">
+        <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
+          <i class="fas fa-right-from-bracket"></i> Logout
+        </a>
+      </div>
+    </aside>
+    <div class="admin-sidebar-overlay" onclick="toggleAdminSidebar()"></div>
+
+    <!-- Main Content -->
+    <main class="student-main">
+      <div class="sm-header">
+        <div>
+          <h1>Course Catalog</h1>
+          <p style="color: var(--text-muted); font-size: 1.3rem;">Manage courses and exam schedules</p>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('addCourseModal').classList.remove('hidden')">
+          <i class="fas fa-plus"></i> Add Course
+        </button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-grid" id="courseStats">
+        <div class="stat-card blue">
+          <div class="stat-info"><span>Total Courses</span><strong id="csTotal">0</strong></div>
+          <div class="stat-icon"><i class="fas fa-book-open"></i></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-info"><span>Compulsory</span><strong id="csComp">0</strong></div>
+          <div class="stat-icon"><i class="fas fa-book"></i></div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-info"><span>Electives</span><strong id="csElec">0</strong></div>
+          <div class="stat-icon"><i class="fas fa-bookmark"></i></div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-info"><span>Total Units</span><strong id="csUnits">0</strong></div>
+          <div class="stat-icon"><i class="fas fa-layer-group"></i></div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="dash-card filter-bar">
+        <div class="filter-group">
+          <select class="filter-select" id="courseLevelFilter" onchange="filterCourses(document.querySelector('.search-input').value)">
+            <option value="">All Levels</option>
+            <option value="200">200 Level</option>
+            <option value="300">300 Level</option>
+            <option value="400">400 Level</option>
+            <option value="500">500 Level</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <input type="text" placeholder="Search by code or title..." class="search-input" oninput="filterCourses(this.value)" />
+          <i class="fas fa-search filter-icon"></i>
+        </div>
+        <div class="filter-group">
+          <select class="filter-select" id="courseTypeFilter" onchange="filterCourses(document.querySelector('.search-input').value)">
+            <option value="">All Types</option>
+            <option value="compulsory">Compulsory</option>
+            <option value="elective">Elective</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Exam Schedule Section -->
+      <div class="dash-card mt-1">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-calendar-plus"></i> Set Exam Schedule</h3>
+        </div>
+        <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">
+          Set the date, time, and hall for an exam. This is what students see on their examinations page.
+        </p>
+        <div class="filter-bar" style="margin: 0">
+          <div class="filter-group">
+            <select id="schCourseSelect" class="search-input" style="min-width:20rem">
+              <option value="">-- Select Course --</option>
+            </select>
+          </div>
+          <div class="filter-group"><input type="date" id="schDate" class="search-input" /></div>
+          <div class="filter-group"><input type="text" id="schTime" class="search-input" placeholder="e.g. 10:00 AM – 12:00 PM" /></div>
+          <div class="filter-group"><input type="text" id="schHall" class="search-input" placeholder="e.g. Hall A" /></div>
+          <button class="btn btn-primary" onclick="saveExamSchedule()"><i class="fas fa-save"></i> Save Schedule</button>
+        </div>
+        <div id="schList" style="margin-top: 1.2rem"></div>
+      </div>
+
+      <!-- Course Table -->
+      <div class="dash-card mt-1">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-book-open"></i> All Courses <span class="rec-count" id="courseRecCount">(0 records)</span></h3>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table" id="courseTable">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Title</th>
+                <th>Level</th>
+                <th>Units</th>
+                <th>Type</th>
+                <th>Scheduled</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="courseTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer" style="margin-top: 2rem">
+    <div class="footer-left">
+      <h3 class="footer-title">IFT</h3>
+      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+    </div>
+    <div class="footer-links">
+      <a href="#">Help Center</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+    <div class="footer-right">
+      &copy; 2026 ImpedeX Security. All rights reserved.
+    </div>
+  </footer>
+
+    <!-- Add Course Modal -->
+    <div class="modal-overlay hidden" id="addCourseModal">
+      <div class="modal-box wide-modal">
+        <div class="modal-close" onclick="document.getElementById('addCourseModal').classList.add('hidden')"><i class="fas fa-times"></i></div>
+        <h3><i class="fas fa-plus-circle"></i> Add New Course</h3>
+        <div class="form-grid mt-1">
+          <div class="form-group">
+            <label>Course Code</label>
+            <input type="text" id="addCourseCode" placeholder="e.g. CSC501" style="text-transform:uppercase" />
+          </div>
+          <div class="form-group">
+            <label>Course Title</label>
+            <input type="text" id="addCourseTitle" placeholder="e.g. Software Engineering" />
+          </div>
+          <div class="form-group">
+            <label>Units</label>
+            <input type="number" id="addCourseUnit" min="1" max="6" value="3" />
+          </div>
+          <div class="form-group">
+            <label>Type</label>
+            <select id="addCourseType">
+              <option value="compulsory">Compulsory</option>
+              <option value="elective">Elective</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-btn-row mt-1">
+          <button class="btn btn-outline" onclick="document.getElementById('addCourseModal').classList.add('hidden')">Cancel</button>
+          <button class="btn btn-primary" onclick="adminAddCourse()"><i class="fas fa-save"></i> Save Course</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Course Modal -->
+    <div class="modal-overlay hidden" id="editCourseModal">
+      <div class="modal-box wide-modal">
+        <div class="modal-close" onclick="document.getElementById('editCourseModal').classList.add('hidden')"><i class="fas fa-times"></i></div>
+        <h3><i class="fas fa-pen"></i> Edit Course</h3>
+        <div class="form-grid mt-1">
+          <div class="form-group">
+            <label>Course Code</label>
+            <input type="text" id="editCourseCode" readonly style="background:#f1f5f9; font-weight:700; color:var(--primary)" />
+          </div>
+          <div class="form-group">
+            <label>Course Title</label>
+            <input type="text" id="editCourseTitle" />
+          </div>
+          <div class="form-group">
+            <label>Units</label>
+            <input type="number" id="editCourseUnit" min="1" max="6" />
+          </div>
+          <div class="form-group">
+            <label>Type</label>
+            <select id="editCourseType">
+              <option value="compulsory">Compulsory</option>
+              <option value="elective">Elective</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-btn-row mt-1">
+          <button class="btn btn-outline" onclick="document.getElementById('editCourseModal').classList.add('hidden')">Cancel</button>
+          <button class="btn btn-primary" onclick="adminUpdateCourse()"><i class="fas fa-save"></i> Update Course</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      function toggleAdminSidebar() {
+        document.getElementById("sidebar").classList.toggle("open");
+        document.querySelector(".admin-sidebar-overlay").classList.toggle("open");
+      }
+      if (!isLoggedIn("admin")) window.location.href = "admin-login.html";
+    </script>
+    <script>
+      let allCoursesData = [];
+
+      async function renderCoursesTable() {
+        const tbody = document.getElementById("courseTbody");
+        try {
+          allCoursesData = await apiAdminCourses();
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2.4rem; color:var(--text-muted)">${err.message}</td></tr>`;
+          return;
+        }
+
+        const total = allCoursesData.length;
+        const comp = allCoursesData.filter((c) => c.type === "compulsory").length;
+        const elec = total - comp;
+        const units = allCoursesData.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+        document.getElementById("csTotal").textContent = total;
+        document.getElementById("csComp").textContent = comp;
+        document.getElementById("csElec").textContent = elec;
+        document.getElementById("csUnits").textContent = units;
+        document.getElementById("courseRecCount").textContent = `(${total} record${total === 1 ? "" : "s"})`;
+
+        renderCourseRows(allCoursesData);
+        renderScheduleSelect();
+        await renderScheduleList();
+      }
+
+      function renderCourseRows(courses) {
+        const tbody = document.getElementById("courseTbody");
+        if (!courses.length) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2.4rem; color:var(--text-muted)">No courses found.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = courses.map((c) => {
+          const sched = c.schedule
+            ? `<span class="status-badge verified"><i class="fas fa-check"></i> ${c.schedule.date}</span>`
+            : `<span class="status-badge warning">Not set</span>`;
+          const typeBadge = c.type === "compulsory"
+            ? `<span class="status-badge verified">Compulsory</span>`
+            : `<span class="status-badge warning">Elective</span>`;
+          const level = c.level || "—";
+          return `<tr>
+            <td><strong style="color:var(--primary)">${c.code}</strong></td>
+            <td>${c.title}</td>
+            <td>${level}L</td>
+            <td>${c.unit}</td>
+            <td>${typeBadge}</td>
+            <td>${sched}</td>
+            <td class="action-cell">
+              <button class="act-btn edit" onclick="openEditCourse('${c.code}','${(c.title||"").replace(/'/g,"\\'")}',${c.unit},'${c.type}')"><i class="fas fa-pen"></i></button>
+              <button class="act-btn delete" onclick="adminDeleteCourse('${c.code}')"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>`;
+        }).join("");
+      }
+
+      function filterCourses(query) {
+        const typeFilter = document.getElementById("courseTypeFilter").value;
+        const levelFilter = document.getElementById("courseLevelFilter").value;
+        const q = query.toLowerCase();
+        const filtered = allCoursesData.filter((c) => {
+          const matchQuery = !q || c.code.toLowerCase().includes(q) || c.title.toLowerCase().includes(q);
+          const matchType = !typeFilter || c.type === typeFilter;
+          const matchLevel = !levelFilter || String(c.level) === levelFilter;
+          return matchQuery && matchType && matchLevel;
+        });
+        renderCourseRows(filtered);
+      }
+
+      function renderScheduleSelect() {
+        const sel = document.getElementById("schCourseSelect");
+        sel.innerHTML = `<option value="">-- Select Course --</option>` +
+          allCoursesData.map((c) => `<option value="${c.code}">${c.code} — ${c.title}</option>`).join("");
+      }
+
+      async function saveExamSchedule() {
+        const code = document.getElementById("schCourseSelect").value;
+        const date = document.getElementById("schDate").value;
+        const time = document.getElementById("schTime").value.trim();
+        const hall = document.getElementById("schHall").value.trim();
+        if (!code || !date || !time || !hall) {
+          showToast("Please select a course and fill in date, time, and hall.", "danger");
+          return;
+        }
+        try {
+          const data = await apiAdminSchedule({ courseCode: code, date: new Date(date).toDateString(), time, hall });
+          showToast(`Schedule saved for ${data.schedule.course_code}.`, "success");
+          document.getElementById("schDate").value = "";
+          document.getElementById("schTime").value = "";
+          document.getElementById("schHall").value = "";
+          await renderCoursesTable();
+        } catch (err) {
+          showToast(err.message || "Could not save schedule.", "danger");
+        }
+      }
+
+      async function renderScheduleList() {
+        const schedules = await apiAdminSchedules();
+        const list = document.getElementById("schList");
+        const codes = Object.keys(schedules);
+        list.innerHTML = codes.length
+          ? codes.map((c) => `<p style="font-size:1.3rem; margin-top:0.4rem"><strong>${c}</strong> — ${schedules[c].date} • ${schedules[c].time} • ${schedules[c].hall}
+              <button class="act-btn delete" style="margin-left:0.8rem" onclick="adminDeleteSchedule('${c}')"><i class="fas fa-trash"></i></button>
+            </p>`).join("")
+          : `<p style="color: var(--text-muted); font-size: 1.3rem">No exams scheduled yet.</p>`;
+      }
+
+      async function adminDeleteSchedule(code) {
+        if (!confirm(`Delete schedule for ${code}?`)) return;
+        try {
+          await apiAdminDeleteSchedule(code);
+          await renderCoursesTable();
+          showToast(`Schedule for ${code} deleted.`, "success");
+        } catch (err) {
+          showToast(err.message || "Could not delete schedule.", "danger");
+        }
+      }
+
+      function openEditCourse(code, title, unit, type) {
+        document.getElementById("editCourseCode").value = code;
+        document.getElementById("editCourseTitle").value = title;
+        document.getElementById("editCourseUnit").value = unit;
+        document.getElementById("editCourseType").value = type;
+        document.getElementById("editCourseModal").classList.remove("hidden");
+      }
+
+      async function adminAddCourse() {
+        const code = document.getElementById("addCourseCode").value.trim().toUpperCase();
+        const title = document.getElementById("addCourseTitle").value.trim();
+        const unit = Number(document.getElementById("addCourseUnit").value);
+        const type = document.getElementById("addCourseType").value;
+        if (!code || !title || !unit) {
+          showToast("All fields are required.", "danger");
+          return;
+        }
+        try {
+          await apiAdminAddCourse({ code, title, unit, type });
+          document.getElementById("addCourseModal").classList.add("hidden");
+          document.getElementById("addCourseCode").value = "";
+          document.getElementById("addCourseTitle").value = "";
+          document.getElementById("addCourseUnit").value = "3";
+          await renderCoursesTable();
+          showToast(`Course ${code} added successfully.`, "success");
+        } catch (err) {
+          showToast(err.message || "Could not add course.", "danger");
+        }
+      }
+
+      async function adminUpdateCourse() {
+        const code = document.getElementById("editCourseCode").value;
+        const title = document.getElementById("editCourseTitle").value.trim();
+        const unit = Number(document.getElementById("editCourseUnit").value);
+        const type = document.getElementById("editCourseType").value;
+        if (!title || !unit) {
+          showToast("Title and units are required.", "danger");
+          return;
+        }
+        try {
+          await apiAdminUpdateCourse(code, { title, unit, type });
+          document.getElementById("editCourseModal").classList.add("hidden");
+          await renderCoursesTable();
+          showToast(`Course ${code} updated.`, "success");
+        } catch (err) {
+          showToast(err.message || "Could not update course.", "danger");
+        }
+      }
+
+      async function adminDeleteCourse(code) {
+        if (!confirm(`Delete course ${code}? This cannot be undone.`)) return;
+        try {
+          await apiAdminDeleteCourse(code);
+          await renderCoursesTable();
+          showToast(`Course ${code} deleted.`, "success");
+        } catch (err) {
+          showToast(err.message || "Could not delete course.", "danger");
+        }
+      }
+
+      renderCoursesTable();
+    </script>
+  </body>
+</html>

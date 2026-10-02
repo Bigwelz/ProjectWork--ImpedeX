@@ -1,0 +1,487 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImpedeX — Exam-Day Verification</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/admin.css" />
+    <style>
+      .av-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.6rem;
+      }
+      @media (max-width: 900px) {
+        .av-grid { grid-template-columns: 1fr; }
+      }
+      .av-photo {
+        width: 100%;
+        max-width: 22rem;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: var(--radius);
+        border: var(--border);
+        background: var(--dark3);
+      }
+      .av-video {
+        width: 100%;
+        border-radius: var(--radius);
+        border: var(--border);
+        background: #000;
+      }
+      .av-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 1.3rem;
+        padding: 0.4rem 1rem;
+        border-radius: 100px;
+        font-weight: 600;
+      }
+      .av-badge.yes { background: rgba(56,161,105,.15); color: var(--success); }
+      .av-badge.no { background: rgba(229,62,62,.15); color: var(--danger); }
+      .av-result-box {
+        margin-top: 1.4rem;
+        padding: 1.4rem;
+        border-radius: var(--radius);
+        border: var(--border);
+      }
+      .av-result-box.match { border-color: var(--success); background: rgba(56,161,105,.08); }
+      .av-result-box.nomatch { border-color: var(--danger); background: rgba(229,62,62,.08); }
+      .av-course-btn {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 1.2rem 1.6rem;
+        margin-bottom: 0.8rem;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .av-course-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      }
+    </style>
+  </head>
+  <body class="student-body">
+
+  <!-- TOP NAVBAR -->
+  <nav class="topnav">
+    <a href="admin-dashboard.html" class="topnav-logo">
+      <svg class="logo-mark" viewBox="0 0 48 48" width="28" height="28" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#e2e8f0"></circle><circle cx="24" cy="19" r="6" fill="#334155"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#334155" stroke-width="2.6" stroke-linecap="round"></path></svg>
+      <span class="topnav-brand">Impede<span class="burnt-orange">X</span> Admin</span>
+    </a>
+    <div class="topnav-right">
+      <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+    </div>
+    <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
+  </nav>
+
+  <!-- SIDEBAR + MAIN -->
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="sidebar-section-label">ADMIN MENU</div>
+      <nav class="admin-sidebar-nav">
+        <a href="admin-dashboard.html" class="admin-nav-item">
+          <i class="fas fa-th-large"></i> Dashboard
+        </a>
+        <a href="admin-students.html" class="admin-nav-item">
+          <i class="fas fa-users"></i> Students
+        </a>
+        <a href="admin-courses.html" class="admin-nav-item">
+          <i class="fas fa-book-open"></i> Courses
+        </a>
+        <a href="admin-reports.html" class="admin-nav-item">
+          <i class="fas fa-chart-column"></i> Reports
+        </a>
+        <a href="admin-verify.html" class="admin-nav-item active">
+          <i class="fas fa-fingerprint"></i> Exam-Day Verify
+        </a>
+      </nav>
+      <div class="sidebar-bottom">
+        <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
+          <i class="fas fa-right-from-bracket"></i> Logout
+        </a>
+      </div>
+    </aside>
+    <div class="admin-sidebar-overlay" onclick="toggleAdminSidebar()"></div>
+
+    <!-- Main Content -->
+    <main class="student-main">
+      <div class="sm-header">
+        <div>
+          <h1>Exam-Day Verification</h1>
+          <p style="color: var(--text-muted); font-size: 1.3rem;">Verify student identity and allocate seats at checkpoint</p>
+        </div>
+      </div>
+
+        <div class="dash-card">
+          <h3><i class="fas fa-layer-group"></i> Step 1: Select Level</h3>
+          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.4rem">
+            Choose the student level (e.g. 500L) to see available courses.
+          </p>
+          <div class="filter-bar" style="margin: 0">
+            <div class="filter-group" style="flex: 1">
+              <select id="avLevelSelect" class="search-input" onchange="avLoadCoursesByLevel()">
+                <option value="">-- Select Level --</option>
+                <option value="200">200 Level</option>
+                <option value="300">300 Level</option>
+                <option value="400">400 Level</option>
+                <option value="500">500 Level</option>
+              </select>
+              <i class="fas fa-graduation-cap filter-icon"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-card mt-1 hidden" id="avCourseListCard">
+          <h3><i class="fas fa-book-open"></i> Step 2: Select Course</h3>
+          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">
+            Click the course the students are writing today.
+          </p>
+          <div id="avCourseList" style="margin-top: 0.8rem"></div>
+        </div>
+
+        <div class="dash-card mt-1 hidden" id="avStudentLookupCard">
+          <h3><i class="fas fa-magnifying-glass"></i> Step 3: Look Up Student</h3>
+          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.4rem">
+            Enter the matric number of the student standing at the checkpoint for <strong id="avSelectedCourseLabel">—</strong>.
+          </p>
+          <div class="filter-bar" style="margin: 0">
+            <div class="filter-group" style="flex: 1">
+              <input type="text" id="avMatricInput" class="search-input" placeholder="e.g. 20211292002" maxlength="11" inputmode="numeric" />
+              <i class="fas fa-id-card filter-icon"></i>
+            </div>
+            <button class="btn btn-primary" onclick="avLookup()"><i class="fas fa-search"></i> Find Student</button>
+          </div>
+        </div>
+
+        <div id="avNotFound" class="dash-card mt-1 hidden">
+          <p><i class="fas fa-circle-exclamation" style="color: var(--danger)"></i> No student record found for that matric number on this device's local database.</p>
+        </div>
+
+        <div id="avPanel" class="dash-card mt-1 hidden">
+          <div class="av-grid">
+            <!-- Reference record -->
+            <div>
+              <h3><i class="fas fa-id-badge"></i> Enrolled Record</h3>
+              <div style="display:flex; gap:1.6rem; align-items:flex-start; margin-top: 1rem">
+                <img id="avPhoto" class="av-photo" src="" alt="Enrolled reference photo" />
+                <div>
+                  <h4 id="avName" style="font-size: 1.8rem; margin-bottom: 0.4rem">—</h4>
+                  <p id="avMeta" style="color: var(--text-muted); font-size: 1.3rem; margin-bottom: 1rem">—</p>
+                  <p style="margin-bottom: 0.6rem"><span class="av-badge" id="avFaceBadge">—</span> Face enrolled</p>
+                  <p><span class="av-badge" id="avFpBadge">—</span> Fingerprint enrolled</p>
+                </div>
+              </div>
+              <div id="avCourseBox" style="margin-top: 1.4rem"></div>
+            </div>
+
+            <!-- Live checkpoint -->
+            <div>
+              <h3><i class="fas fa-camera"></i> Live Checkpoint Capture</h3>
+              <video id="avVideo" class="av-video hidden" autoplay playsinline></video>
+              <div class="camera-btns" style="margin-top: 1rem">
+                <button class="btn btn-outline" id="avStartCamBtn" onclick="avStartCamera()"><i class="fas fa-video"></i> Start Camera</button>
+                <button class="btn btn-primary hidden" id="avCaptureBtn" onclick="avCaptureAndMatch()"><i class="fas fa-camera"></i> Capture &amp; Match Face</button>
+              </div>
+              <div id="avFaceResult"></div>
+
+              <div style="margin-top: 2rem; padding-top: 1.6rem; border-top: var(--border)">
+                <h3><i class="fas fa-fingerprint"></i> Fingerprint Check</h3>
+                <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">
+                  Fingerprint credentials are locked to the device that
+                  enrolled them. This step only works if you run it ON THE
+                  STUDENT'S OWN enrolled laptop/phone (hand it to them, or use
+                  a checkpoint device they previously registered on) — this
+                  admin computer cannot read a credential enrolled elsewhere.
+                </p>
+                <button class="btn btn-outline" id="avFpBtn" onclick="avVerifyFingerprint()"><i class="fas fa-fingerprint"></i> Run Fingerprint Check on This Device</button>
+                <p class="fp-status" id="avFpStatus"></p>
+              </div>
+
+              <div style="margin-top: 2rem">
+                <button class="btn btn-primary full-btn" id="avApproveBtn" onclick="avApproveAndSeat()" disabled><i class="fas fa-chair"></i> Verify &amp; Allocate Seat</button>
+                <p style="color: var(--text-muted); font-size: 1.3rem; margin-top: 1rem">
+                  <i class="fas fa-circle-info"></i> Both <strong>face</strong> and <strong>fingerprint</strong> checks must pass before seat allocation.
+                  Seat allocation happens here on exam day <strong>only</strong>
+                  — clicking this approves the student and assigns their seat server-side, so candidates
+                  cannot know where they sit before being confirmed at the checkpoint.
+                </p>
+              </div>
+              <div id="avSeatResult" style="margin-top: 1rem"></div>
+              <div id="avAttendanceLog" style="margin-top: 1rem"></div>
+            </div>
+          </div>
+        </div>
+    </main>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer" style="margin-top: 2rem">
+    <div class="footer-left">
+      <h3 class="footer-title">IFT</h3>
+      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+    </div>
+    <div class="footer-links">
+      <a href="#">Help Center</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+    <div class="footer-right">
+      &copy; 2026 ImpedeX Security. All rights reserved.
+    </div>
+  </footer>
+
+    <script src="js/api.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="js/biometrics.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      function toggleAdminSidebar() {
+        document.getElementById("sidebar").classList.toggle("open");
+        document.querySelector(".admin-sidebar-overlay").classList.toggle("open");
+      }
+      if (!isLoggedIn("admin")) window.location.href = "admin-login.html";
+    </script>
+    <script>
+      let avStream = null;
+      let avCurrentStudent = null;
+      let avSelectedCourse = null;
+      let avFacePassed = false;
+      let avFpPassed = false;
+
+      (function prefillFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const matric = params.get("matric");
+        if (matric) {
+          document.getElementById("avMatricInput").value = matric;
+          avLookup();
+        }
+      })();
+
+      async function avLoadCoursesByLevel() {
+        const level = document.getElementById("avLevelSelect").value;
+        const listCard = document.getElementById("avCourseListCard");
+        const listEl = document.getElementById("avCourseList");
+        const lookupCard = document.getElementById("avStudentLookupCard");
+
+        if (!level) {
+          listCard.classList.add("hidden");
+          lookupCard.classList.add("hidden");
+          avSelectedCourse = null;
+          return;
+        }
+
+        listEl.innerHTML = `<p><i class="fas fa-spinner fa-spin"></i> Loading courses...</p>`;
+        listCard.classList.remove("hidden");
+        lookupCard.classList.add("hidden");
+        avSelectedCourse = null;
+
+        try {
+          const courses = await apiAdminCoursesByLevel(level);
+          if (!courses.length) {
+            listEl.innerHTML = `<p style="color: var(--text-muted)">No courses found for ${level}00 level.</p>`;
+            return;
+          }
+          listEl.innerHTML = courses.map((c) => {
+            const sched = c.schedule;
+            const schedText = sched ? `${sched.date} • ${sched.time} • ${sched.hall}` : "Not scheduled";
+            return `<button class="btn btn-outline av-course-btn" onclick="avSelectCourse('${c.code}', '${c.title.replace(/'/g, "\\'")}')">
+              <strong>${c.code}</strong> — ${c.title}
+              <span style="display:block;font-size:1.1rem;color:var(--text-muted);margin-top:0.2rem">${schedText}</span>
+            </button>`;
+          }).join("");
+        } catch (err) {
+          listEl.innerHTML = `<p style="color: var(--danger)"><i class="fas fa-circle-exclamation"></i> ${err.message}</p>`;
+        }
+      }
+
+      function avSelectCourse(code, title) {
+        avSelectedCourse = { code, title };
+        document.getElementById("avSelectedCourseLabel").textContent = `${code} — ${title}`;
+        document.getElementById("avStudentLookupCard").classList.remove("hidden");
+        document.getElementById("avMatricInput").focus();
+
+        document.querySelectorAll(".av-course-btn").forEach((btn) => {
+          btn.classList.remove("btn-primary");
+          btn.classList.add("btn-outline");
+        });
+        event.currentTarget.classList.remove("btn-outline");
+        event.currentTarget.classList.add("btn-primary");
+      }
+
+      async function avLookup() {
+        const matric = document.getElementById("avMatricInput").value.trim();
+        let record;
+        try {
+          record = await apiAdminStudent(matric);
+        } catch (err) {
+          document.getElementById("avNotFound").classList.remove("hidden");
+          document.getElementById("avPanel").classList.add("hidden");
+          document.getElementById("avNotFound").querySelector("p").innerHTML =
+            `<i class="fas fa-circle-exclamation" style="color: var(--danger)"></i> ${err.message}`;
+          avCurrentStudent = null;
+          return;
+        }
+        document.getElementById("avNotFound").classList.add("hidden");
+        document.getElementById("avPanel").classList.remove("hidden");
+        avCurrentStudent = record;
+
+        document.getElementById("avPhoto").src = record.photo || "";
+        document.getElementById("avName").textContent = `${record.firstName || ""} ${record.lastName || ""}`.trim() || "(No name on file)";
+        document.getElementById("avMeta").innerHTML = `${record.matric} &bull; ${record.department || "—"} &bull; ${record.level || "—"}`;
+
+        const faceBadge = document.getElementById("avFaceBadge");
+        faceBadge.textContent = record.faceDescriptor ? "Yes" : "No";
+        faceBadge.className = "av-badge " + (record.faceDescriptor ? "yes" : "no");
+
+        const fpBadge = document.getElementById("avFpBadge");
+        fpBadge.textContent = record.fingerprintCredentialId ? "Yes" : "No";
+        fpBadge.className = "av-badge " + (record.fingerprintCredentialId ? "yes" : "no");
+
+        const courseBox = document.getElementById("avCourseBox");
+        const course = record.examSelection
+          ? { code: record.examSelection.course_code, title: (record.registeredCourses || []).find((c) => c.code === record.examSelection.course_code)?.title || "" }
+          : (record.registeredCourses || [])[0];
+        if (course) {
+          const sched = record.schedule;
+          courseBox.innerHTML = `<p><strong>Sitting for:</strong> ${course.code} — ${course.title.replace(/&amp;/g,"&")}</p>
+            <p style="color:var(--text-muted); font-size:1.3rem; margin-top:0.4rem">${sched ? `${sched.date} • ${sched.time} • ${sched.hall}` : "Not yet scheduled by admin — set a schedule above to seat this student."}</p>`;
+        } else {
+          courseBox.innerHTML = `<p style="color: var(--text-muted)">This student has not selected a course to sit for yet.</p>`;
+        }
+
+        document.getElementById("avFaceResult").innerHTML = "";
+        document.getElementById("avFpStatus").textContent = "";
+        document.getElementById("avSeatResult").innerHTML = "";
+        document.getElementById("avAttendanceLog").innerHTML = "";
+        avFacePassed = false;
+        avFpPassed = false;
+        updateApproveBtn();
+
+        if (record.seat) {
+          document.getElementById("avSeatResult").innerHTML =
+            `<div class="av-result-box match"><i class="fas fa-chair" style="color:var(--success)"></i> Already seated — Hall ${record.seat.hall}, Row ${record.seat.row}, Seat ${record.seat.seat}.</div>`;
+        }
+      }
+
+      async function avStartCamera() {
+        const video = document.getElementById("avVideo");
+        try {
+          avStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = avStream;
+          video.classList.remove("hidden");
+          document.getElementById("avStartCamBtn").classList.add("hidden");
+          document.getElementById("avCaptureBtn").classList.remove("hidden");
+        } catch {
+          showToast("Camera access denied.", "danger");
+        }
+      }
+
+      async function avCaptureAndMatch() {
+        if (!avCurrentStudent) return;
+        const video = document.getElementById("avVideo");
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 480;
+        canvas.height = video.videoHeight || 360;
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const resultBox = document.getElementById("avFaceResult");
+        resultBox.innerHTML = `<p style="margin-top:1rem"><i class="fas fa-spinner fa-spin"></i> Analysing face...</p>`;
+
+        const liveDescriptor = typeof getFaceDescriptor === "function" ? await getFaceDescriptor(canvas) : null;
+
+        if (!liveDescriptor) {
+          resultBox.innerHTML = `<div class="av-result-box nomatch">No face clearly detected in the live capture. Try again with better lighting.</div>`;
+          return;
+        }
+        if (!avCurrentStudent.faceDescriptor) {
+          resultBox.innerHTML = `<div class="av-result-box nomatch">This student has no enrolled face reference yet. They must complete the student-side Identity Verification (face + fingerprint enrollment) first.</div>`;
+          return;
+        }
+
+        const { isMatch, distance } = faceMatches(liveDescriptor, avCurrentStudent.faceDescriptor);
+        const confidence = Math.max(0, (100 - distance * 100)).toFixed(1);
+        avFacePassed = isMatch;
+        updateApproveBtn();
+        resultBox.innerHTML = isMatch
+          ? `<div class="text-result-box" style="border-color:var(--success);background:rgba(56,161,105,.08)"><i class="fas fa-circle-check" style="color:var(--success)"></i> Face MATCHES enrolled record — confidence ${confidence}%</div>`
+          : `<div class="text-result-box" style="border-color:var(--danger);background:rgba(229,62,62,.08)"><i class="fas fa-triangle-exclamation" style="color:var(--danger)"></i> Face does NOT match enrolled record — confidence ${confidence}%. Possible impersonation — do not seat this student.</div>`;
+        try {
+          await apiAdminVerify(avCurrentStudent.matric, isMatch ? "pass" : "fail", `Face check — confidence ${confidence}%`);
+        } catch (err) {
+          console.warn(err);
+        }
+
+        if (avStream) avStream.getTracks().forEach((t) => t.stop());
+      }
+
+      async function avVerifyFingerprint() {
+        if (!avCurrentStudent) return;
+        const statusEl = document.getElementById("avFpStatus");
+        if (!avCurrentStudent.fingerprintCredentialId) {
+          statusEl.textContent = "This student has no enrolled fingerprint credential.";
+          statusEl.className = "fp-status warn";
+          return;
+        }
+        try {
+          await verifyFingerprint(avCurrentStudent.fingerprintCredentialId);
+          statusEl.textContent = "Fingerprint verified — this device holds the enrolled credential.";
+          statusEl.className = "fp-status ok";
+          avFpPassed = true;
+          updateApproveBtn();
+          await apiAdminVerify(avCurrentStudent.matric, "pass", "Fingerprint check passed");
+        } catch (err) {
+          statusEl.textContent = "Fingerprint check failed/cancelled, or this is not the student's enrolled device: " + (err.message || err);
+          statusEl.className = "fp-status err";
+          avFpPassed = false;
+          updateApproveBtn();
+          await apiAdminVerify(avCurrentStudent.matric, "fail", "Fingerprint check failed/cancelled");
+        }
+      }
+
+      function updateApproveBtn() {
+        const btn = document.getElementById("avApproveBtn");
+        if (!btn) return;
+        const ready = avFacePassed && avFpPassed;
+        btn.disabled = !ready;
+        btn.title = ready ? "" : "Both face and fingerprint checks must pass first.";
+      }
+
+      async function avApproveAndSeat() {
+        if (!avCurrentStudent) return;
+        if (!avFacePassed || !avFpPassed) {
+          showToast("Both face and fingerprint checks must pass before allocating a seat.", "danger");
+          return;
+        }
+        if (!confirm(`Approve ${avCurrentStudent.matric} and allocate a seat now?`)) return;
+        const btn = event.target;
+        btn.disabled = true;
+        try {
+          const data = await apiAdminApprove(avCurrentStudent.matric, avSelectedCourse ? avSelectedCourse.code : null);
+          document.getElementById("avSeatResult").innerHTML =
+            `<div style="margin-top:1rem;padding:1.4rem;border-radius:var(--radius);background:rgba(56,161,105,.1);border:1px solid var(--success)">
+              <h4 style="margin-bottom:0.6rem"><i class="fas fa-circle-check" style="color:var(--success)"></i> Approved &amp; Seated</h4>
+              <p style="font-size:1.4rem">Hall <strong>${data.seat.hall}</strong> • Row <strong>${data.seat.row}</strong> • Seat <strong>${data.seat.seat}</strong></p>
+            </div>`;
+          document.getElementById("avAttendanceLog").innerHTML =
+            `<p style="color: var(--success)"><i class="fas fa-clipboard-check"></i> Approved at ${new Date().toLocaleTimeString()}. Seat allocated server-side.</p>`;
+          showToast(`Seat allocated: Hall ${data.seat.hall}, Seat ${data.seat.seat}`, "success");
+        } catch (err) {
+          showToast(err.message || "Could not allocate seat.", "danger");
+        } finally {
+          btn.disabled = false;
+        }
+      }
+    </script>
+  </body>
+</html>

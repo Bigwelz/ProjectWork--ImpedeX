@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ImpedeX — Admin Registration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      .reg-steps {
+        display: flex;
+        justify-content: center;
+        gap: 0.8rem;
+        margin-bottom: 2rem;
+      }
+      .reg-step {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+      .reg-step.active {
+        color: var(--primary);
+      }
+      .reg-step.done {
+        color: var(--success);
+      }
+      .reg-step-num {
+        width: 2.8rem;
+        height: 2.8rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--border);
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+      .reg-step.active .reg-step-num {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: #fff;
+      }
+      .reg-step.done .reg-step-num {
+        border-color: var(--success);
+        background: var(--success);
+        color: #fff;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.2rem;
+      }
+      @media (max-width: 600px) {
+        .form-grid { grid-template-columns: 1fr; }
+      }
+      .form-grid .full-width {
+        grid-column: 1 / -1;
+      }
+      .form-section {
+        display: none;
+      }
+      .form-section.active {
+        display: block;
+      }
+      .security-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: rgba(15, 82, 186, 0.08);
+        border: 1px solid rgba(15, 82, 186, 0.2);
+        color: var(--primary);
+        padding: 0.8rem 1.4rem;
+        border-radius: var(--radius);
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 1.6rem;
+      }
+      .security-badge i {
+        font-size: 1.4rem;
+      }
+    </style>
+  </head>
+  <body class="auth-page admin-auth-page">
+    <div class="auth-wrapper">
+      <div class="auth-card admin-login-card" style="max-width: 60rem">
+        <div class="auth-header">
+          <div class="admin-shield"><svg class="logo-mark" viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="var(--primary)"></circle><circle cx="24" cy="19" r="6" fill="#fff"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"></path><path d="M24 15a9 9 0 0 1 9 9" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"></path></svg></div>
+          <h2>Admin Registration</h2>
+          <p>Create a new admin account</p>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="reg-steps">
+          <div class="reg-step active" id="step1Indicator">
+            <span class="reg-step-num">1</span>
+            <span>Personal</span>
+          </div>
+          <div class="reg-step" id="step2Indicator">
+            <span class="reg-step-num">2</span>
+            <span>Security</span>
+          </div>
+          <div class="reg-step" id="step3Indicator">
+            <span class="reg-step-num">3</span>
+            <span>Confirm</span>
+          </div>
+        </div>
+
+        <div class="security-badge">
+          <i class="fas fa-shield-halved"></i>
+          <span>All fields are encrypted and stored securely.</span>
+        </div>
+
+        <form id="adminRegisterForm" novalidate>
+          <!-- Step 1: Personal Info -->
+          <div class="form-section active" id="formSection1">
+            <div class="form-grid">
+              <div class="form-group">
+                <label><i class="fas fa-user"></i> First Name *</label>
+                <input type="text" id="regFirstName" placeholder="e.g. John" required />
+              </div>
+              <div class="form-group">
+                <label><i class="fas fa-user"></i> Last Name *</label>
+                <input type="text" id="regLastName" placeholder="e.g. Doe" required />
+              </div>
+              <div class="form-group">
+                <label><i class="fas fa-envelope"></i> Email Address *</label>
+                <input type="email" id="regEmail" placeholder="admin@futo.edu.ng" required />
+              </div>
+              <div class="form-group">
+                <label><i class="fas fa-phone"></i> Phone Number</label>
+                <input type="tel" id="regPhone" placeholder="e.g. 08012345678" />
+              </div>
+              <div class="form-group full-width">
+                <label><i class="fas fa-building"></i> Department</label>
+                <input type="text" id="regDepartment" placeholder="e.g. Information Technology" />
+              </div>
+            </div>
+            <div class="form-btn-row mt-1">
+              <a href="admin-login.html" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back to Login</a>
+              <button type="button" class="btn btn-primary" onclick="goToStep(2)">Next: Security <i class="fas fa-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <!-- Step 2: Security Credentials -->
+          <div class="form-section" id="formSection2">
+            <div class="form-grid">
+              <div class="form-group full-width">
+                <label><i class="fas fa-lock"></i> Password *</label>
+                <div class="input-eye">
+                  <input type="password" id="regPassword" placeholder="Min. 8 characters" required />
+                  <i class="fas fa-eye toggle-eye" onclick="toggleEye('regPassword', this)"></i>
+                </div>
+                <small style="color: var(--text-muted); font-size: 1.1rem; margin-top: 0.4rem; display: block">
+                  Must include uppercase, lowercase, number, and special character.
+                </small>
+              </div>
+              <div class="form-group full-width">
+                <label><i class="fas fa-lock"></i> Confirm Password *</label>
+                <div class="input-eye">
+                  <input type="password" id="regConfirmPassword" placeholder="Re-enter password" required />
+                  <i class="fas fa-eye toggle-eye" onclick="toggleEye('regConfirmPassword', this)"></i>
+                </div>
+              </div>
+              <div class="form-group full-width" style="margin-top: 1.2rem; padding-top: 1.2rem; border-top: 1px solid var(--border)">
+                <label><i class="fas fa-key"></i> Admin Secret Key *</label>
+                <div class="input-eye">
+                  <input type="password" id="regAdminKey" placeholder="Min. 10 characters" required />
+                  <i class="fas fa-eye toggle-eye" onclick="toggleEye('regAdminKey', this)"></i>
+                </div>
+                <small style="color: var(--text-muted); font-size: 1.1rem; margin-top: 0.4rem; display: block">
+                  A unique secret key used for login authentication. Choose something only you know.
+                </small>
+              </div>
+              <div class="form-group full-width">
+                <label><i class="fas fa-key"></i> Confirm Admin Secret Key *</label>
+                <div class="input-eye">
+                  <input type="password" id="regConfirmAdminKey" placeholder="Re-enter admin key" required />
+                  <i class="fas fa-eye toggle-eye" onclick="toggleEye('regConfirmAdminKey', this)"></i>
+                </div>
+              </div>
+            </div>
+            <div class="form-btn-row mt-1">
+              <button type="button" class="btn btn-outline" onclick="goToStep(1)"><i class="fas fa-arrow-left"></i> Back</button>
+              <button type="button" class="btn btn-primary" onclick="goToStep(3)">Next: Confirm <i class="fas fa-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <!-- Step 3: Confirmation -->
+          <div class="form-section" id="formSection3">
+            <div style="background: var(--dark2); border-radius: var(--radius); padding: 1.6rem; margin-bottom: 1.6rem">
+              <h4 style="margin-bottom: 1rem; font-size: 1.4rem"><i class="fas fa-clipboard-check"></i> Review Your Details</h4>
+              <div class="form-grid" style="gap: 0.8rem">
+                <div><span style="color: var(--text-muted)">Name:</span> <strong id="reviewName">—</strong></div>
+                <div><span style="color: var(--text-muted)">Email:</span> <strong id="reviewEmail">—</strong></div>
+                <div><span style="color: var(--text-muted)">Phone:</span> <strong id="reviewPhone">—</strong></div>
+                <div><span style="color: var(--text-muted)">Department:</span> <strong id="reviewDept">—</strong></div>
+              </div>
+            </div>
+
+            <div class="reg-hint-box" style="margin-bottom: 1.6rem">
+              <i class="fas fa-circle-info"></i>
+              <p>By registering, you agree to the terms of service. Your admin secret key is required for every login — keep it safe. If lost, you must contact the system administrator.</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary full-btn" id="registerBtn">
+              <i class="fas fa-user-shield"></i> Create Admin Account
+            </button>
+            <div class="form-btn-row mt-1">
+              <button type="button" class="btn btn-outline" onclick="goToStep(2)"><i class="fas fa-arrow-left"></i> Back</button>
+            </div>
+          </div>
+        </form>
+
+        <div class="auth-footer-link">
+          <a href="admin-login.html"><i class="fas fa-arrow-left"></i> Back to Admin Login</a>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      let currentStep = 1;
+
+      function goToStep(step) {
+        if (step > currentStep) {
+          if (currentStep === 1 && !validateStep1()) return;
+          if (currentStep === 2 && !validateStep2()) return;
+        }
+
+        document.querySelectorAll(".form-section").forEach((s) => s.classList.remove("active"));
+        document.getElementById("formSection" + step).classList.add("active");
+
+        for (let i = 1; i <= 3; i++) {
+          const indicator = document.getElementById("step" + i + "Indicator");
+          indicator.classList.remove("active", "done");
+          if (i < step) indicator.classList.add("done");
+          else if (i === step) indicator.classList.add("active");
+        }
+
+        if (step === 3) populateReview();
+        currentStep = step;
+      }
+
+      function validateStep1() {
+        const first = document.getElementById("regFirstName").value.trim();
+        const last = document.getElementById("regLastName").value.trim();
+        const email = document.getElementById("regEmail").value.trim();
+        if (!first || !last || !email) {
+          showToast("First name, last name, and email are required.", "danger");
+          return false;
+        }
+        if (!email.includes("@") || !email.includes(".")) {
+          showToast("Please enter a valid email address.", "danger");
+          return false;
+        }
+        return true;
+      }
+
+      function validateStep2() {
+        const pass = document.getElementById("regPassword").value;
+        const confirm = document.getElementById("regConfirmPassword").value;
+        const key = document.getElementById("regAdminKey").value;
+        const confirmKey = document.getElementById("regConfirmAdminKey").value;
+
+        if (!pass || !confirm || !key || !confirmKey) {
+          showToast("All security fields are required.", "danger");
+          return false;
+        }
+        if (pass.length < 8) {
+          showToast("Password must be at least 8 characters.", "danger");
+          return false;
+        }
+        if (pass !== confirm) {
+          showToast("Passwords do not match.", "danger");
+          return false;
+        }
+        if (key.length < 10) {
+          showToast("Admin secret key must be at least 10 characters.", "danger");
+          return false;
+        }
+        if (key !== confirmKey) {
+          showToast("Admin secret keys do not match.", "danger");
+          return false;
+        }
+        return true;
+      }
+
+      function populateReview() {
+        document.getElementById("reviewName").textContent = document.getElementById("regFirstName").value.trim() + " " + document.getElementById("regLastName").value.trim();
+        document.getElementById("reviewEmail").textContent = document.getElementById("regEmail").value.trim();
+        document.getElementById("reviewPhone").textContent = document.getElementById("regPhone").value.trim() || "Not provided";
+        document.getElementById("reviewDept").textContent = document.getElementById("regDepartment").value.trim() || "Not provided";
+      }
+
+      document.getElementById("adminRegisterForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!validateStep1() || !validateStep2()) return;
+
+        const btn = document.getElementById("registerBtn");
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+
+        try {
+          await apiAdminRegister({
+            firstName: document.getElementById("regFirstName").value.trim(),
+            lastName: document.getElementById("regLastName").value.trim(),
+            email: document.getElementById("regEmail").value.trim().toLowerCase(),
+            phone: document.getElementById("regPhone").value.trim(),
+            department: document.getElementById("regDepartment").value.trim(),
+            password: document.getElementById("regPassword").value,
+            confirmPassword: document.getElementById("regConfirmPassword").value,
+            adminKey: document.getElementById("regAdminKey").value,
+            confirmAdminKey: document.getElementById("regConfirmAdminKey").value,
+          });
+          showToast("Admin account created successfully!", "success");
+          setTimeout(() => { window.location.href = "admin-login.html"; }, 1500);
+        } catch (err) {
+          showToast(err.message || "Registration failed.", "danger");
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-user-shield"></i> Create Admin Account';
+        }
+      });
+    </script>
+  </body>
+</html>

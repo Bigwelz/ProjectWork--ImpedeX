@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EIPS — Seat Allocation</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="auth-page">
+    <nav class="navbar">
+      <a href="index.html" class="logo">
+        <svg class="logo-mark" viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="var(--primary)"></circle><circle cx="24" cy="19" r="6" fill="#fff"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"></path><path d="M24 15a9 9 0 0 1 9 9" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"></path></svg>
+        <span>Impede<span class="burnt-orange">X</span></span>
+      </a>
+      <a href="student-dashboard.html" class="nav-back" title="Back to dashboard"><i class="fas fa-arrow-left"></i> Back</a>
+      <div class="nav-student-info">
+        <i class="fas fa-user-circle"></i>
+        <span id="seatNavStudentName">Student</span>
+        <a href="#" class="btn-logout" onclick="logout(); return false;"
+          ><i class="fas fa-right-from-bracket"></i
+        ></a>
+      </div>
+    </nav>
+
+    <div class="auth-wrapper">
+      <div class="auth-card wide-card">
+        <!-- Verified Badge -->
+        <div class="verified-badge-top">
+          <i class="fas fa-circle-check"></i> Identity Verified &mdash;
+          Attendance Recorded
+        </div>
+
+        <div class="auth-header">
+          <i class="fas fa-map-pin"></i>
+          <h2>Your Seat Allocation</h2>
+          <p>Report to your assigned seat before the examination begins.</p>
+        </div>
+
+        <!-- Pending state: shown when the invigilator has NOT approved/allocated yet -->
+        <div class="seat-card hidden" id="seatPendingCard">
+          <div class="seat-top">
+            <div class="seat-logo"><i class="fas fa-clock"></i> EIPS</div>
+            <div class="seat-badge">PENDING ADMITTANCE</div>
+          </div>
+          <div class="seat-main" style="text-align: center">
+            <div class="seat-number-display">
+              <span class="seat-label" style="margin-bottom: 0.6rem">Seat</span>
+              <span class="seat-num" style="font-size: 5rem; color: var(--warning)"><i class="fas fa-hourglass-half"></i></span>
+            </div>
+            <p style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 1rem">
+              You have not been admitted yet.
+            </p>
+            <p style="font-size: 1.4rem; color: var(--text); margin-bottom: 1.6rem">
+              Your seat is allocated <strong>on exam day</strong> — after the
+              invigilator verifies your identity at the admittance checkpoint.
+              This keeps seating unknown to candidates beforehand, reducing the
+              risk of exam malpractice. Return to this screen once admitted.
+            </p>
+            <div class="sd-item" style="max-width: 46rem; margin: 0 auto 1rem">
+              <i class="fas fa-book-open"></i>
+              <div>
+                <span>Exam / Course</span>
+                <strong id="pendingCourseCode">—</strong>
+              </div>
+            </div>
+            <div class="sd-item" style="max-width: 46rem; margin: 0 auto">
+              <i class="fas fa-calendar-day"></i>
+              <div>
+                <span>Schedule</span>
+                <strong id="pendingCourseMeta">—</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seat Card -->
+        <div class="seat-card" id="seatCard">
+          <div class="seat-top">
+            <div class="seat-logo">
+              <svg class="logo-mark" viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="var(--primary)"></circle><circle cx="24" cy="19" r="6" fill="#fff"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"></path><path d="M24 15a9 9 0 0 1 9 9" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"></path></svg> EIPS
+            </div>
+            <div class="seat-badge">VERIFIED</div>
+          </div>
+          <div class="seat-main">
+            <div class="seat-number-display">
+              <span class="seat-label">Seat</span>
+              <span class="seat-num" id="seatNumDisplay">—</span>
+            </div>
+            <div class="seat-details-grid">
+              <div class="sd-item">
+                <i class="fas fa-person"></i>
+                <div>
+                  <span>Student</span>
+                  <strong id="seatStudentName">—</strong>
+                </div>
+              </div>
+              <div class="sd-item">
+                <i class="fas fa-id-card"></i>
+                <div>
+                  <span>Matric No.</span>
+                  <strong id="seatMatric">—</strong>
+                </div>
+              </div>
+              <div class="sd-item">
+                <i class="fas fa-book-open"></i>
+                <div>
+                  <span>Course</span>
+                  <strong id="seatCourse">—</strong>
+                </div>
+              </div>
+              <div class="sd-item">
+                <i class="fas fa-building"></i>
+                <div>
+                  <span>Hall</span>
+                  <strong id="seatHall">—</strong>
+                </div>
+              </div>
+              <div class="sd-item">
+                <i class="fas fa-table-cells"></i>
+                <div>
+                  <span>Row</span>
+                  <strong id="seatRow">—</strong>
+                </div>
+              </div>
+              <div class="sd-item">
+                <i class="fas fa-clock"></i>
+                <div>
+                  <span>Exam Time</span>
+                  <strong id="seatTime">—</strong>
+                </div>
+              </div>
+              <div class="sd-item">
+                <i class="fas fa-calendar-day"></i>
+                <div>
+                  <span>Date</span>
+                  <strong id="seatDate">—</strong>
+                </div>
+              </div>
+              <div class="sd-item">
+                <i class="fas fa-circle-check"></i>
+                <div>
+                  <span>Status</span>
+                  <strong class="status-verified"
+                    >Verified &amp; Admitted</strong
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="seat-footer">
+            <p>
+              <i class="fas fa-triangle-exclamation"></i> Do not change seats.
+              Any impersonation attempt is logged and reported.
+            </p>
+          </div>
+        </div>
+
+        <!-- Hall Map Preview -->
+        <div class="hall-map" id="hallMap">
+          <h3><i class="fas fa-map"></i> Hall A — Seat Layout Preview</h3>
+          <div class="hall-grid" id="hallGrid">
+            <!-- Generated by JS -->
+          </div>
+          <div class="hall-legend">
+            <span class="leg-item"
+              ><span class="leg-dot occupied"></span> Occupied</span
+            >
+            <span class="leg-item"
+              ><span class="leg-dot yours"></span> Your Seat</span
+            >
+            <span class="leg-item"
+              ><span class="leg-dot empty"></span> Empty</span
+            >
+          </div>
+        </div>
+
+        <div class="seat-actions">
+          <button onclick="window.print()" class="btn btn-outline">
+            <i class="fas fa-print"></i> Print Seat Slip
+          </button>
+          <a href="index.html" class="btn btn-primary">
+            <i class="fas fa-house"></i> Done
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

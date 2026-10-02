@@ -1,0 +1,18 @@
+{
+  "name": "eips-backend",
+  "version": "1.0.0",
+  "description": "Exam Impersonation Prevention System — Express + SQLite backend",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
