@@ -58,6 +58,17 @@ async function apiFetch(path, { method = "GET", body } = {}) {
   if (!res.ok) {
     const err = new Error((data && data.error) || "Request failed (" + res.status + ").");
     err.status = res.status;
+
+    // Expired / invalid token → end the session and return to the right
+    // login page. Login & register endpoints are excluded so a wrong-password
+    // 401 stays on the form instead of reloading it.
+    const isAuthCall = /\/api\/(auth\/(login|register)|admin\/(login|register))/.test(path);
+    if (res.status === 401 && token && !isAuthCall) {
+      const role = getSessionRole();
+      clearSession();
+      window.location.replace(role === "admin" ? "admin-login.html" : "login.html");
+      err.message = "Session expired. Please log in again.";
+    }
     throw err;
   }
   return data;
@@ -112,12 +123,6 @@ async function apiCarryOverOptions(matric) {
 async function apiSelectExam(courseCode) {
   return apiFetch("/api/courses/select-exam", { method: "POST", body: { courseCode } });
 }
-async function apiEnrollFace(faceDescriptor, photo) {
-  return apiFetch("/api/verify/face-enroll", {
-    method: "POST",
-    body: { faceDescriptor, photo },
-  });
-}
 async function apiEnrollFingerprint(credentialId) {
   return apiFetch("/api/verify/fingerprint-enroll", {
     method: "POST",
@@ -140,6 +145,10 @@ async function apiAdminStudents() {
 }
 async function apiAdminStudent(matric) {
   return apiFetch("/api/admin/student/" + encodeURIComponent(matric));
+}
+/* Exam-day 1:N fingerprint index: [{ matric, template }] (scanner "zk:" only) */
+async function apiAdminFingerprints() {
+  return apiFetch("/api/admin/fingerprints");
 }
 async function apiAdminAddStudent(payload) {
   return apiFetch("/api/admin/students", { method: "POST", body: payload });

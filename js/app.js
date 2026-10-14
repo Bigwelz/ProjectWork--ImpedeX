@@ -3,15 +3,15 @@
    Exam Impersonation Prevention System.
    Requires js/api.js to be loaded BEFORE this file,
    plus js/biometrics.js on pages using the
-   camera / fingerprint sensor.
+   fingerprint sensor / scanner bridge.
 ============================================= */
 
 "use strict";
 
 /* ─────────────────────────────────────────
    INSECURE CONTEXT WARNING
-   Camera (getUserMedia) and WebAuthn fingerprint
-   sensors only work over https:// or http://localhost.
+   WebAuthn fingerprint sensors only work over
+   https:// or http://localhost.
    Serve this site through the backend (node server/index.js)
    at http://localhost:4000 — never file://
 ───────────────────────────────────────── */
@@ -73,7 +73,7 @@
   btn.title = "Toggle dark mode";
   btn.setAttribute("role", "switch");
   btn.setAttribute("aria-label", "Toggle dark mode");
-  btn.innerHTML = '<span class="switch-track"><span class="switch-thumb"></span><span class="switch-moon"><i class="fas fa-moon"></i></span></span>';
+  btn.innerHTML = '<span class="switch-track"><span class="switch-thumb"></span></span>';
 
   function syncSwitchState() {
     const isDark = theme === "dark";
@@ -88,6 +88,26 @@
     syncSwitchState();
   });
 
+  // Place the switch in the admin sidebar near the Logout button
+  const sidebarBottom = document.querySelector(".sidebar-bottom");
+  if (sidebarBottom) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "sidebar-theme-toggle";
+    wrapper.style.marginBottom = "1.2rem";
+    wrapper.style.padding = "0 1.2rem";
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "0.8rem";
+    const label = document.createElement("span");
+    label.textContent = "Dark Mode";
+    label.style.fontSize = "1.3rem";
+    label.style.color = "var(--text-muted)";
+    wrapper.appendChild(label);
+    wrapper.appendChild(btn);
+    sidebarBottom.insertBefore(wrapper, sidebarBottom.firstChild);
+    return;
+  }
+
   // Place the switch immediately AFTER the "Get Started" button on pages
   // that have one (landing + student pages), and after the Back link on
   // pages that don't (login / forgot-password).
@@ -97,7 +117,7 @@
     const getStarted = container.querySelector('a[href="register.html"]');
     const back = container.querySelector(".topnav-back") || container.querySelector(".nav-back");
     if (getStarted) getStarted.insertAdjacentElement("afterend", btn);
-    else if (back) back.insertAdjacentElement("afterend", btn);
+    else if (back) back.insertAdjacentElement("beforebegin", btn);
     else container.appendChild(btn);
     return;
   }
@@ -296,6 +316,9 @@ function toggleSidebar() {
 function setAdminSession(loggedIn) {
   if (!loggedIn) {
     clearSession();
+    // The admin-portal cookie is deliberately kept on logout (it expires on
+    // its own 4h after login), so the landing page still shows "Back to
+    // Admin" for this browser — the same behaviour as the dashboard's Back.
     window.location.href = "admin-login.html";
   }
 }
@@ -305,8 +328,26 @@ function adminSessionGuard() {
     window.location.href = "admin-login.html";
     return false;
   }
+  resetAdminInactivityTimer();
   return true;
 }
+
+let adminInactivityTimer = null;
+const ADMIN_INACTIVITY_TIMEOUT = 5 * 60 * 1000;
+
+function resetAdminInactivityTimer() {
+  if (adminInactivityTimer) clearTimeout(adminInactivityTimer);
+  adminInactivityTimer = setTimeout(() => {
+    showToast("Logged out due to inactivity.", "warning");
+    setTimeout(() => setAdminSession(false), 1500);
+  }, ADMIN_INACTIVITY_TIMEOUT);
+}
+
+["click", "keydown", "mousemove", "scroll"].forEach((evt) => {
+  document.addEventListener(evt, () => {
+    if (isLoggedIn("admin")) resetAdminInactivityTimer();
+  }, { passive: true });
+});
 
 /* ─────────────────────────────────────────
    3. PASSWORD VISIBILITY TOGGLE
@@ -350,6 +391,11 @@ function nextStep(current) {
     if (matricEl && !isValidMatric(matricEl.value)) {
       showToast("Matric number must be exactly 11 digits, e.g. 20211292002.", "danger");
       matricEl.style.borderColor = "var(--danger)";
+      valid = false;
+    }
+    const photoImg = document.getElementById("photoPreviewImg");
+    if (!photoImg || photoImg.classList.contains("hidden") || !photoImg.src) {
+      showToast("Please upload your photo — it is compulsory. It is shown at the exam-day checkpoint.", "danger");
       valid = false;
     }
   }
@@ -464,98 +510,6 @@ function clearPhotoUpload() {
   if (removeBtn) removeBtn.classList.add("hidden");
 }
 
-/* ── Camera Modal for Profile Picture ── */
-let _modalStream = null;
-
-function openCameraModal() {
-  const modal = document.getElementById("cameraModal");
-  if (modal) modal.classList.remove("hidden");
-}
-
-function closeCameraModal() {
-  const modal = document.getElementById("cameraModal");
-  if (modal) modal.classList.add("hidden");
-  modalStopCamera();
-}
-
-async function modalStartCamera() {
-  const video = document.getElementById("modalVideoFeed");
-  const placeholder = document.getElementById("modalCameraPlaceholder");
-  const startBtn = document.getElementById("modalStartCamBtn");
-  const captureBtn = document.getElementById("modalCaptureBtn");
-
-  if (!video) return;
-
-  try {
-    _modalStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } });
-    video.srcObject = _modalStream;
-    video.classList.remove("hidden");
-    if (placeholder) placeholder.style.display = "none";
-    if (startBtn) startBtn.classList.add("hidden");
-    if (captureBtn) captureBtn.classList.remove("hidden");
-  } catch (err) {
-    showToast("Could not access camera: " + err.message, "danger");
-  }
-}
-
-function modalCapturePhoto() {
-  const video = document.getElementById("modalVideoFeed");
-  const canvas = document.getElementById("modalSnapCanvas");
-  const captureBtn = document.getElementById("modalCaptureBtn");
-  const retakeBtn = document.getElementById("modalRetakeBtn");
-
-  if (!video || !canvas) return;
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
-
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-
-  // Set the captured photo as the profile picture
-  const img = document.getElementById("photoPreviewImg");
-  const icon = document.getElementById("photoPreviewIcon");
-  const removeBtn = document.getElementById("photoRemoveBtn");
-  if (img) {
-    img.src = dataUrl;
-    img.classList.remove("hidden");
-  }
-  if (icon) icon.classList.add("hidden");
-  if (removeBtn) removeBtn.classList.remove("hidden");
-
-  // Store the photo data for registration
-  window.__regPhoto = dataUrl;
-
-  // Stop camera and close modal
-  modalStopCamera();
-  closeCameraModal();
-  showToast("Photo captured successfully!", "success");
-}
-
-function modalRetakePhoto() {
-  const captureBtn = document.getElementById("modalCaptureBtn");
-  const retakeBtn = document.getElementById("modalRetakeBtn");
-  if (captureBtn) captureBtn.classList.remove("hidden");
-  if (retakeBtn) retakeBtn.classList.add("hidden");
-}
-
-function modalStopCamera() {
-  if (_modalStream) {
-    _modalStream.getTracks().forEach(t => t.stop());
-    _modalStream = null;
-  }
-  const video = document.getElementById("modalVideoFeed");
-  const placeholder = document.getElementById("modalCameraPlaceholder");
-  const startBtn = document.getElementById("modalStartCamBtn");
-  const captureBtn = document.getElementById("modalCaptureBtn");
-  const retakeBtn = document.getElementById("modalRetakeBtn");
-  if (video) { video.srcObject = null; video.classList.add("hidden"); }
-  if (placeholder) placeholder.style.display = "";
-  if (startBtn) startBtn.classList.remove("hidden");
-  if (captureBtn) captureBtn.classList.add("hidden");
-  if (retakeBtn) retakeBtn.classList.add("hidden");
-}
-
 function isValidMatric(matric) {
   return typeof matric === "string" && /^\d{11}$/.test(matric.trim());
 }
@@ -585,6 +539,19 @@ if (regForm) {
       return;
     }
 
+    const uploadedPhoto = document.getElementById("photoPreviewImg");
+    let photoSrc = null;
+    if (uploadedPhoto && uploadedPhoto.src && !uploadedPhoto.classList.contains("hidden")) {
+      photoSrc = uploadedPhoto.src;
+    }
+    if (!photoSrc) {
+      showToast(
+        "Please upload a clear photo of yourself — it is shown at the exam-day checkpoint.",
+        "danger"
+      );
+      return;
+    }
+
     const submitBtn = document.getElementById("submitBtn");
     if (submitBtn) {
       submitBtn.disabled = true;
@@ -604,16 +571,8 @@ if (regForm) {
       faculty: field("regFaculty"),
       level: field("regLevel"),
       session: field("regSession"),
+      photo: photoSrc,
     };
-
-    const uploadedPhoto = document.getElementById("photoPreviewImg");
-    let photoSrc = null;
-    if (uploadedPhoto && uploadedPhoto.src && !uploadedPhoto.classList.contains("hidden")) {
-      photoSrc = uploadedPhoto.src;
-    }
-    if (photoSrc) {
-      payload.photo = photoSrc;
-    }
 
     try {
       await apiRegister(payload);
@@ -1056,12 +1015,10 @@ async function proceedToBiometric() {
 
 /* ─────────────────────────────────────────
    BIOMETRIC COLLECTION PAGE
-   Student captures face photo + fingerprint
-   after course registration.
+   Fingerprint enrollment only, after course
+   registration. The registration photo was
+   already uploaded at account creation.
 ───────────────────────────────────────── */
-let _bioStream = null;
-let _capturedPhoto = null;
-
 (async function initBiometricCollection() {
   const nameEl = document.getElementById("bioStudentName");
   if (!nameEl) return; // not on biometric-collection.html
@@ -1077,119 +1034,30 @@ let _capturedPhoto = null;
     subEl.innerHTML = `<span>${student.matric}</span> &bull; ${student.department || "—"} &bull; ${student.level || "—"}`;
   }
 
-  // If biometrics already collected, show completion
-  if (student.faceDescriptor && student.fingerprintCredentialId) {
-    document.getElementById("faceSection").classList.add("hidden");
+  // If the fingerprint is already enrolled, show completion
+  if (student.fingerprintCredentialId) {
     document.getElementById("fingerprintSection").classList.add("hidden");
     document.getElementById("completionSection").classList.remove("hidden");
-    updateSteps(4);
-    return;
-  }
-
-  // If face already collected, skip to fingerprint
-  if (student.faceDescriptor) {
-    document.getElementById("faceSection").classList.add("hidden");
-    document.getElementById("fingerprintSection").classList.remove("hidden");
     updateSteps(3);
     return;
   }
+
+  updateSteps(2);
 })();
 
+/* 3-step bar: Logged In → Fingerprint → Complete */
 function updateSteps(step) {
   const vs1 = document.getElementById("vs1");
   const vs2 = document.getElementById("vs2");
   const vs3 = document.getElementById("vs3");
-  const vs4 = document.getElementById("vs4");
+  if (!vs1 || !vs2 || !vs3) return;
 
   if (step >= 2) { vs1.classList.add("done"); vs1.innerHTML = '<i class="fas fa-circle-check"></i> Logged In'; }
-  if (step >= 3) { vs2.classList.add("done"); vs2.innerHTML = '<i class="fas fa-circle-check"></i> Face Photo'; vs3.classList.add("active"); vs3.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fingerprint'; }
-  if (step >= 4) { vs3.classList.add("done"); vs3.innerHTML = '<i class="fas fa-circle-check"></i> Fingerprint'; vs4.classList.add("done"); vs4.innerHTML = '<i class="fas fa-circle-check"></i> Complete'; }
-}
-
-async function capturePhoto() {
-  const video = document.getElementById("bioVideo");
-  const canvas = document.getElementById("bioCanvas");
-  const placeholder = document.getElementById("bioPlaceholder");
-  const captureBtn = document.getElementById("capturePhotoBtn");
-  const retakeBtn = document.getElementById("retakePhotoBtn");
-  const resultEl = document.getElementById("faceResult");
-
-  if (!_bioStream) {
-    // Start camera
-    try {
-      _bioStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } });
-      video.srcObject = _bioStream;
-      placeholder.style.display = "none";
-      captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Photo';
-      return;
-    } catch (err) {
-      showToast("Could not access camera: " + err.message, "danger");
-      return;
-    }
+  if (step >= 3) {
+    vs2.classList.remove("active");
+    vs2.classList.add("done"); vs2.innerHTML = '<i class="fas fa-circle-check"></i> Fingerprint';
+    vs3.classList.add("done"); vs3.innerHTML = '<i class="fas fa-circle-check"></i> Complete';
   }
-
-  // Capture photo
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0);
-  _capturedPhoto = canvas.toDataURL("image/jpeg", 0.9);
-
-  // Stop camera
-  if (_bioStream) {
-    _bioStream.getTracks().forEach(t => t.stop());
-    _bioStream = null;
-  }
-
-  // Get face descriptor
-  captureBtn.disabled = true;
-  captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-  const img = new Image();
-  img.src = _capturedPhoto;
-  await new Promise(r => { img.onload = r; });
-
-  const descriptor = await getFaceDescriptor(img);
-  if (!descriptor) {
-    showToast("No face detected. Please retake with your face clearly visible.", "danger");
-    captureBtn.disabled = false;
-    captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Photo';
-    return;
-  }
-
-  // Enroll face on server
-  try {
-    await apiEnrollFace(descriptor, _capturedPhoto);
-    resultEl.classList.remove("hidden");
-    captureBtn.classList.add("hidden");
-    retakeBtn.classList.add("hidden");
-    updateSteps(3);
-
-    // Show fingerprint section
-    setTimeout(() => {
-      document.getElementById("faceSection").classList.add("hidden");
-      document.getElementById("fingerprintSection").classList.remove("hidden");
-    }, 1500);
-  } catch (err) {
-    showToast("Failed to save face data: " + err.message, "danger");
-    captureBtn.disabled = false;
-    captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Photo';
-  }
-}
-
-function retakePhoto() {
-  const video = document.getElementById("bioVideo");
-  const placeholder = document.getElementById("bioPlaceholder");
-  const captureBtn = document.getElementById("capturePhotoBtn");
-
-  _capturedPhoto = null;
-  if (_bioStream) {
-    _bioStream.getTracks().forEach(t => t.stop());
-    _bioStream = null;
-  }
-  video.srcObject = null;
-  placeholder.style.display = "";
-  captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture Photo';
 }
 
 async function enrollFingerprintStep() {
@@ -1199,7 +1067,11 @@ async function enrollFingerprintStep() {
   const btn = document.getElementById("enrollFpBtn");
   const statusEl = document.getElementById("fpStatus");
 
-  if (!webAuthnSupported()) {
+  // Exam-scanner bridge first (ZK9500 on this PC), else the device's
+  // own WebAuthn sensor. If neither exists, skip the fingerprint step.
+  const bridge = await bridgeHealth();
+
+  if (!bridge && !webAuthnSupported()) {
     if (statusEl) {
       statusEl.textContent = "This browser/device has no fingerprint sensor available. Fingerprint step will be skipped.";
       statusEl.className = "fp-status warn";
@@ -1207,23 +1079,36 @@ async function enrollFingerprintStep() {
     // Skip fingerprint, go to completion
     document.getElementById("fingerprintSection").classList.add("hidden");
     document.getElementById("completionSection").classList.remove("hidden");
-    updateSteps(4);
+    updateSteps(3);
     return;
   }
 
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Waiting for sensor...';
+  btn.innerHTML = bridge
+    ? '<i class="fas fa-spinner fa-spin"></i> Waiting for scanner...'
+    : '<i class="fas fa-spinner fa-spin"></i> Waiting for sensor...';
 
   try {
-    const credentialId = await enrollFingerprint(student.matric, `${student.firstName} ${student.lastName}`);
+    let credentialId;
+    if (bridge) {
+      if (statusEl) {
+        statusEl.textContent = "Place and hold your finger on the exam scanner...";
+        statusEl.className = "fp-status";
+      }
+      credentialId = await enrollFingerprintScanner();
+    } else {
+      credentialId = await enrollFingerprint(student.matric, `${student.firstName} ${student.lastName}`);
+    }
     await apiEnrollFingerprint(credentialId);
 
     if (statusEl) {
-      statusEl.textContent = "Fingerprint enrolled successfully on this device.";
+      statusEl.textContent = bridge
+        ? "Fingerprint enrolled via the exam scanner."
+        : "Fingerprint enrolled successfully on this device.";
       statusEl.className = "fp-status ok";
     }
 
-    updateSteps(4);
+    updateSteps(3);
 
     // Show completion
     setTimeout(() => {
@@ -1287,281 +1172,6 @@ async function enrollFingerprintStep() {
     banner.innerHTML = `<i class="fas fa-circle-info"></i><p>You already registered courses for this session on <strong>${when}</strong>. Submitting again below will update your registration.</p>`;
     hintBox.closest(".reg-hint-box").after(banner);
   }
-})();
-
-/* ─────────────────────────────────────────
-   9. IDENTITY VERIFICATION PAGE
-   Step A: Face — first time enrolls a descriptor
-   from the live camera; later visits compare live
-   capture against the stored descriptor.
-   Step B: Fingerprint — WebAuthn enroll/verify.
-   NOTE: a seat is NOT assigned here. On exam day the
-   invigilator approves the student at the admin
-   checkpoint and ONLY THEN is a seat allocated.
-───────────────────────────────────────── */
-let verifyStream = null;
-let __verifyFaceOk = false;
-let __verifyFpOk = false;
-
-async function startVerification() {
-  const placeholder = document.getElementById("verifyPlaceholder");
-  const video = document.getElementById("verifyVideo");
-  const scanLine = document.getElementById("scanLine");
-  const startBtn = document.getElementById("startVerifyBtn");
-  const vs2 = document.getElementById("vs2");
-
-  const student = await requireLogin();
-  if (!student || !video) return;
-
-  try {
-    verifyStream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = verifyStream;
-    video.classList.remove("hidden");
-
-    if (placeholder) placeholder.classList.add("hidden");
-    if (scanLine) scanLine.style.display = "block";
-    if (startBtn) startBtn.disabled = true;
-    if (vs2) vs2.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning Face';
-
-    setTimeout(async () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth || 480;
-      canvas.height = video.videoHeight || 360;
-      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      stopVerifyCamera();
-
-      let descriptor = null;
-      try {
-        descriptor = typeof getFaceDescriptor === "function" ? await getFaceDescriptor(canvas) : null;
-      } catch (err) {
-        console.warn("Face descriptor extraction failed:", err);
-      }
-
-      if (!descriptor) {
-        showFaceStepResult(false, "No face could be detected clearly. Please retry with better lighting.");
-        return;
-      }
-
-      if (!student.faceDescriptor) {
-        try {
-          await apiEnrollFace(descriptor, canvas.toDataURL("image/jpeg"));
-          showFaceStepResult(true, "Face enrolled as your biometric reference.");
-        } catch (err) {
-          showFaceStepResult(false, err.message || "Could not save your face reference.");
-        }
-      } else {
-        const { isMatch, distance } = faceMatches(descriptor, student.faceDescriptor);
-        if (isMatch) {
-          showFaceStepResult(true, `Face match confidence: ${(100 - distance * 100).toFixed(1)}%`);
-        } else {
-          showFaceStepResult(false, "Face did not match your registered photo. An alert would be sent to the administrator.");
-        }
-      }
-    }, 2500);
-  } catch {
-    showToast("Camera access denied. Cannot perform verification.", "danger");
-  }
-}
-
-function stopVerifyCamera() {
-  if (verifyStream) verifyStream.getTracks().forEach((t) => t.stop());
-  const scanLine = document.getElementById("scanLine");
-  if (scanLine) scanLine.style.display = "none";
-}
-
-function showFaceStepResult(success, detailText) {
-  const resultSuccess = document.getElementById("verifyResult");
-  const resultFailed = document.getElementById("verifyFailed");
-  const retryBtn = document.getElementById("retryVerifyBtn");
-  const startBtn = document.getElementById("startVerifyBtn");
-  const vs2 = document.getElementById("vs2");
-  const fpSection = document.getElementById("fingerprintSection");
-
-  __verifyFaceOk = success;
-
-  if (success) {
-    if (resultSuccess) {
-      resultSuccess.classList.remove("hidden");
-      const detail = resultSuccess.querySelector("p");
-      if (detail) detail.textContent = detailText;
-    }
-    if (vs2) {
-      vs2.classList.remove("active");
-      vs2.classList.add("done");
-      vs2.innerHTML = '<i class="fas fa-circle-check"></i> Face Verified';
-    }
-    if (fpSection) fpSection.classList.remove("hidden");
-    showToast("Face step complete.", "success");
-  } else {
-    if (resultFailed) {
-      resultFailed.classList.remove("hidden");
-      const detail = resultFailed.querySelector("p");
-      if (detail) detail.textContent = detailText;
-    }
-    if (retryBtn) retryBtn.classList.remove("hidden");
-    if (startBtn) startBtn.classList.add("hidden");
-    if (vs2) {
-      vs2.classList.remove("active");
-      vs2.innerHTML = '<i class="fas fa-circle-xmark"></i> Scan Failed';
-      vs2.style.color = "var(--danger)";
-    }
-    showToast(detailText, "danger");
-  }
-}
-
-function retryVerification() {
-  const resultFailed = document.getElementById("verifyFailed");
-  const retryBtn = document.getElementById("retryVerifyBtn");
-  const startBtn = document.getElementById("startVerifyBtn");
-  const placeholder = document.getElementById("verifyPlaceholder");
-  const video = document.getElementById("verifyVideo");
-  const vs2 = document.getElementById("vs2");
-
-  if (resultFailed) resultFailed.classList.add("hidden");
-  if (retryBtn) retryBtn.classList.add("hidden");
-  if (startBtn) {
-    startBtn.disabled = false;
-    startBtn.classList.remove("hidden");
-  }
-  if (placeholder) placeholder.classList.remove("hidden");
-  if (video) {
-    video.classList.add("hidden");
-    video.srcObject = null;
-  }
-  if (vs2) {
-    vs2.classList.add("active");
-    vs2.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning Face';
-    vs2.style.color = "";
-  }
-}
-
-/* Fingerprint step — real WebAuthn, run AFTER face succeeds */
-async function runFingerprintStep() {
-  const student = await requireLogin();
-  if (!student) return;
-  const btn = document.getElementById("fingerprintBtn");
-  const statusEl = document.getElementById("fingerprintStatus");
-  const vs3 = document.getElementById("vs3");
-
-  if (!webAuthnSupported()) {
-    if (statusEl) {
-      statusEl.textContent =
-        "This browser/device has no platform fingerprint sensor available (or the page isn't served over HTTPS). Fingerprint step skipped.";
-      statusEl.className = "fp-status warn";
-    }
-    finishVerification(false);
-    return;
-  }
-
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Waiting for sensor...';
-  }
-
-  try {
-    if (!student.fingerprintCredentialId) {
-      const credentialId = await enrollFingerprint(student.matric, `${student.firstName} ${student.lastName}`);
-      await apiEnrollFingerprint(credentialId);
-      if (statusEl) {
-        statusEl.textContent = "Fingerprint enrolled successfully on this device.";
-        statusEl.className = "fp-status ok";
-      }
-    } else {
-      await verifyFingerprint(student.fingerprintCredentialId);
-      if (statusEl) {
-        statusEl.textContent = "Fingerprint verified successfully.";
-        statusEl.className = "fp-status ok";
-      }
-    }
-    if (vs3) {
-      vs3.classList.add("done");
-      vs3.innerHTML = '<i class="fas fa-circle-check"></i> Fingerprint Verified';
-    }
-    finishVerification(true);
-  } catch (err) {
-    console.warn(err);
-    const msg = err && err.message ? err.message : String(err);
-    if (statusEl) {
-      statusEl.textContent = "Fingerprint step was cancelled or failed: " + msg;
-      statusEl.className = "fp-status err";
-    }
-    showToast("Fingerprint step failed: " + msg, "danger");
-    finishVerification(false);
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-fingerprint"></i> Try Fingerprint Again';
-    }
-  }
-}
-
-async function finishVerification(fpOk) {
-  __verifyFpOk = fpOk;
-  const proceedBtn = document.getElementById("proceedSeatBtn");
-  const doneBtn = document.getElementById("verifyDoneBtn");
-  const vs4 = document.getElementById("vs4");
-  const doneMsg = document.getElementById("verifyDoneMsg");
-
-  if (__verifyFaceOk && __verifyFpOk) {
-    if (vs4) {
-      vs4.classList.add("done");
-      vs4.innerHTML = '<i class="fas fa-circle-check"></i> Identity Confirmed';
-    }
-    showToast("Identity confirmed!", "success");
-    if (doneMsg) doneMsg.classList.remove("hidden");
-    if (doneBtn) doneBtn.classList.remove("hidden");
-    // A seat is NOT assigned here — it is allocated by the invigilator on
-    // exam day at the admin checkpoint. Show the seat button only if one
-    // has already been approved.
-    if (proceedBtn) {
-      try {
-        const seatData = await apiGetSeat();
-        if (seatData && seatData.seat) proceedBtn.classList.remove("hidden");
-      } catch {
-        /* keep button hidden */
-      }
-    }
-  }
-}
-
-/* Populate the verify.html student summary bar + exam badge on load */
-(async function initVerifyPage() {
-  const navNameEl = document.getElementById("loggedStudentName");
-  const summaryNameEl = document.getElementById("summaryStudentName");
-  if (!navNameEl && !summaryNameEl) return; // not on verify.html
-
-  const student = await requireLogin();
-  if (!student) return;
-
-  const fullName = `${student.firstName} ${student.lastName}`;
-  if (navNameEl) navNameEl.textContent = fullName;
-  if (summaryNameEl) summaryNameEl.textContent = fullName;
-
-  const summarySubEl = document.getElementById("summaryStudentSub");
-  if (summarySubEl) {
-    summarySubEl.innerHTML = `<span>${student.matric}</span> &bull; ${student.department || "—"} &bull; ${student.level || "—"}`;
-  }
-
-  const registered = student.registeredCourses || [];
-  const examCourse =
-    (student.examSelection && registered.find((c) => c.code === student.examSelection.course_code)) ||
-    registered[0] ||
-    null;
-
-  const codeEl = document.getElementById("summaryExamCode");
-  const metaEl = document.getElementById("summaryExamMeta");
-  if (!examCourse) {
-    const count = registered.length;
-    if (codeEl) codeEl.textContent = count ? `${count} Course${count === 1 ? "" : "s"} Registered` : "No course registered";
-    if (metaEl) metaEl.textContent = count ? `${registered.reduce((s, c) => s + (Number(c.units) || 0), 0)} Total Units` : "Go back to course registration";
-    return;
-  }
-
-  window.__eipsExamCourse = examCourse;
-
-  if (codeEl) codeEl.textContent = examCourse.code;
-  if (metaEl) metaEl.textContent = examCourse.title || "—";
 })();
 
 /* ─────────────────────────────────────────
@@ -1683,12 +1293,9 @@ function buildHallGrid(seatNumber) {
   const totalUnits = courses.reduce((sum, c) => sum + (Number(c.unit) || 0), 0);
   setText("smRegUnits", `Total ${totalUnits} Units`);
 
-  const bioReady = !!(student.faceDescriptor || student.fingerprintCredentialId);
-  const bioEnrolled = [];
-  if (student.faceDescriptor) bioEnrolled.push("Face");
-  if (student.fingerprintCredentialId) bioEnrolled.push("Fingerprint");
-  setText("smBioStatus", bioEnrolled.length ? bioEnrolled.join(" + ") : "Pending");
-  setText("smBioDate", bioEnrolled.length ? "Biometrics enrolled" : "Not yet enrolled");
+  const fpEnrolled = !!student.fingerprintCredentialId;
+  setText("smBioStatus", fpEnrolled ? "Fingerprint" : "Pending");
+  setText("smBioDate", fpEnrolled ? "Fingerprint enrolled" : "Not yet enrolled");
 
   const coursesById = {};
   (courses || []).forEach((c) => { coursesById[c.code] = c; });
@@ -1734,7 +1341,7 @@ function buildHallGrid(seatNumber) {
   const listEl = document.getElementById("smActivityList");
   if (listEl) {
     const items = [];
-    if (bioEnrolled.length) items.push({ icon: "fa-fingerprint", text: "Biometric profile verified", time: "Today" });
+    if (fpEnrolled) items.push({ icon: "fa-fingerprint", text: "Biometric profile verified", time: "Today" });
     if (courses.length) items.push({ icon: "fa-book-open", text: `${courses.length} course${courses.length === 1 ? "" : "s"} registered`, time: "Today" });
     if (student.examSelection) items.push({ icon: "fa-file-alt", text: `Selected exam: ${student.examSelection.courseCode || "—"}`, time: "Today" });
 
@@ -2118,7 +1725,7 @@ async function exportCSV() {
   }
 
   const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  let csv = "Matric No.,Name,Department,Level,Courses Registered,Fingerprint Enrolled,Face Enrolled\n";
+  let csv = "Matric No.,Name,Department,Level,Courses Registered,Fingerprint Enrolled\n";
   students.forEach((s) => {
     csv += [
       esc(s.matric),
@@ -2127,7 +1734,6 @@ async function exportCSV() {
       esc(s.level),
       (s.registeredCourses || []).length,
       s.fingerprintCredentialId ? "Yes" : "No",
-      s.faceDescriptor ? "Yes" : "No",
     ].join(",") + "\n";
   });
 

@@ -21,7 +21,7 @@
     </a>
     <div class="topnav-right">
       <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
-      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)">Logout <i class="fas fa-right-from-bracket"></i></button>
     </div>
     <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
   </nav>
@@ -50,7 +50,7 @@
       </nav>
       <div class="sidebar-bottom">
         <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
-          <i class="fas fa-right-from-bracket"></i> Logout
+          Logout <i class="fas fa-right-from-bracket"></i>
         </a>
       </div>
     </aside>
@@ -67,6 +67,27 @@
           <i class="fas fa-user-plus"></i> Add Student
         </button>
       </div>
+
+      <!-- Level Selection -->
+      <div class="dash-card" id="stuLevelSelectView">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-layer-group"></i> Select Level</h3>
+        </div>
+        <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">Choose a level to view its students:</p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem">
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectStudentLevel(100)">100 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectStudentLevel(200)">200 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectStudentLevel(300)">300 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectStudentLevel(400)">400 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectStudentLevel(500)">500 Level</button>
+        </div>
+      </div>
+
+      <!-- Student Content (shown after level selection) -->
+      <div id="stuContentView" class="hidden">
+        <div style="margin-bottom:1rem">
+          <button class="btn btn-outline btn-sm" onclick="backToStudentLevels()"><i class="fas fa-arrow-left"></i> Back to Levels</button>
+        </div>
 
       <!-- Filters -->
       <div class="dash-card filter-bar">
@@ -145,22 +166,31 @@
           <button class="pg-btn" disabled><i class="fas fa-chevron-right"></i></button>
         </div>
       </div>
+      </div><!-- end stuContentView -->
     </main>
   </div>
 
   <!-- FOOTER -->
-  <footer class="site-footer" style="margin-top: 2rem">
-    <div class="footer-left">
-      <h3 class="footer-title">IFT</h3>
-      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
-    </div>
-    <div class="footer-links">
-      <a href="#">Help Center</a>
-      <a href="#">Terms of Service</a>
-      <a href="#">Contact Support</a>
-    </div>
-    <div class="footer-right">
-      &copy; 2026 ImpedeX Security. All rights reserved.
+  <footer class="lp-footer">
+    <div class="lp-footer-inner">
+      <div class="lp-footer-left">
+        <h3>IFT</h3>
+        <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+      </div>
+      <div class="lp-footer-links">
+        <a href="#">Help Center</a>
+        <a href="#">Terms of Service</a>
+        <div class="lp-footer-dropdown">
+          <button type="button" class="lp-footer-dropdown-trigger">Contact Support <i class="fas fa-chevron-down"></i></button>
+          <div class="lp-footer-dropdown-menu">
+            <a href="tel:08136489243">08136489243</a>
+            <a href="tel:08062142392">08062142392</a>
+          </div>
+        </div>
+      </div>
+      <div class="lp-footer-right">
+        &copy; 2026 ImpedeX Security. All rights reserved.
+      </div>
     </div>
   </footer>
 
@@ -179,7 +209,6 @@
         <div class="modal-detail-grid">
           <div><span>Email</span><strong id="modalStudentEmail">—</strong></div>
           <div><span>Phone</span><strong id="modalStudentPhone">—</strong></div>
-          <div><span>Face enrolled</span><strong id="modalStudentFace">—</strong></div>
           <div><span>Fingerprint enrolled</span><strong id="modalStudentFp">—</strong></div>
           <div><span>Courses registered</span><strong id="modalStudentCourses">—</strong></div>
           <div><span>Seat</span><strong id="modalStudentSeat">—</strong></div>
@@ -271,6 +300,21 @@
       if (!isLoggedIn("admin")) window.location.href = "admin-login.html";
     </script>
     <script>
+      let selectedStudentLevel = null;
+
+      function selectStudentLevel(level) {
+        selectedStudentLevel = level;
+        document.getElementById("stuLevelSelectView").classList.add("hidden");
+        document.getElementById("stuContentView").classList.remove("hidden");
+        renderAdminStudentsTable();
+      }
+
+      function backToStudentLevels() {
+        selectedStudentLevel = null;
+        document.getElementById("stuContentView").classList.add("hidden");
+        document.getElementById("stuLevelSelectView").classList.remove("hidden");
+      }
+
       async function renderAdminStudentsTable() {
         const tbody = document.getElementById("studentTbody");
         let students;
@@ -280,6 +324,11 @@
           tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2.4rem; color:var(--text-muted)">${err.message}</td></tr>`;
           return;
         }
+
+        if (selectedStudentLevel) {
+          students = students.filter((s) => String(s.level).replace(" Level", "") === String(selectedStudentLevel));
+        }
+
         document.getElementById("studentRecCount").textContent = `(${students.length} record${students.length === 1 ? "" : "s"})`;
 
         if (!students.length) {
@@ -293,8 +342,7 @@
             const seat = s.seat ? `${s.seat.hall || "Hall pending"} / Seat ${s.seat.seat}` : "—";
             let status = "Pending";
             let statusClass = "warning";
-            if (s.faceDescriptor && s.fingerprintCredentialId) { status = "Biometrics Enrolled"; statusClass = "verified"; }
-            else if (s.faceDescriptor || s.fingerprintCredentialId) { status = "Partial Enrollment"; statusClass = "warning"; }
+            if (s.fingerprintCredentialId) { status = "Biometrics Enrolled"; statusClass = "verified"; }
             return `<tr data-matric="${s.matric}">
               <td><input type="checkbox" /></td>
               <td>${s.matric}</td>
@@ -325,7 +373,6 @@
         document.getElementById("modalStudentSub").innerHTML = `${s.matric} &bull; ${s.level || "—"} &bull; ${s.department || "—"}`;
         document.getElementById("modalStudentEmail").textContent = s.email || "—";
         document.getElementById("modalStudentPhone").textContent = s.phone || "—";
-        document.getElementById("modalStudentFace").textContent = s.faceDescriptor ? "Yes" : "No";
         document.getElementById("modalStudentFp").textContent = s.fingerprintCredentialId ? "Yes" : "No";
         document.getElementById("modalStudentCourses").textContent = (s.registeredCourses || []).length;
         document.getElementById("modalStudentSeat").textContent = s.seat ? `${s.seat.hall || "Pending"} / Row ${s.seat.row} / Seat ${s.seat.seat}` : "—";

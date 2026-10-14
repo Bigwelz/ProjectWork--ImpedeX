@@ -38,6 +38,12 @@
   --font: "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
+/* Author styles (e.g. .lp-btn-outline { display:inline-flex }) otherwise beat
+   the browser's default [hidden] rule — force it everywhere. */
+[hidden] {
+  display: none !important;
+}
+
 /* ── Dark Theme Overrides ──
    Flip the light surfaces only. Brand bands (emerald hero, slate admin
    sidebar, deep slate footer) are intentional in both themes. */
@@ -1326,114 +1332,10 @@ img {
 }
 
 /* =============================================
-   CAMERA / FACE CAPTURE
+   BIOMETRIC COLLECTION BOXES
 ============================================= */
 .face-capture-box {
   text-align: center;
-}
-
-.camera-frame {
-  width: 100%;
-  max-width: 420px;
-  height: 320px;
-  margin: 0 auto 1.4rem;
-  border-radius: var(--radius-lg);
-  border: 2px solid #d3dcd8;
-  overflow: hidden;
-  position: relative;
-  background: #000;
-}
-
-.camera-frame video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.camera-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.face-guide {
-  width: 180px;
-  height: 220px;
-  border: 3px solid var(--accent);
-  border-radius: 50%;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
-  animation: pulse-guide 2s ease-in-out infinite;
-}
-
-@keyframes pulse-guide {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 9999px rgba(0, 0, 0, 0.45),
-      0 0 0 0 rgba(0, 201, 167, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 0 9999px rgba(0, 0, 0, 0.45),
-      0 0 0 12px rgba(0, 201, 167, 0);
-  }
-}
-
-.scan-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  animation: scan 2.5s linear infinite;
-  display: none;
-}
-
-@keyframes scan {
-  0% {
-    top: 0;
-  }
-  100% {
-    top: 100%;
-  }
-}
-
-.camera-placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  color: #cfe0da;
-  font-size: 1.4rem;
-}
-
-.camera-placeholder i {
-  font-size: 4rem;
-  color: var(--accent);
-}
-
-.captured-preview {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.camera-hint {
-  font-size: 1.3rem;
-  color: var(--text-muted);
-  margin-bottom: 1.4rem;
-}
-.camera-hint i {
-  color: var(--warning);
-  margin-right: 0.4rem;
 }
 
 .camera-btns {
@@ -1442,16 +1344,6 @@ img {
   justify-content: center;
   flex-wrap: wrap;
   margin-bottom: 1.4rem;
-}
-
-.capture-status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.8rem;
-  color: var(--success);
-  font-size: 1.5rem;
-  font-weight: 600;
 }
 
 /* =============================================
@@ -1802,6 +1694,19 @@ img {
   padding: 0.4rem 1.2rem;
   border-radius: 50px;
   margin-top: 0.8rem;
+}
+
+/* Admin auth pages that carry the ImpedeX Admin top navbar:
+   the header and the login card share one screen (no extra scroll). */
+.auth-page-with-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.auth-page-with-nav .auth-wrapper {
+  flex: 1;
+  min-height: auto;
+  padding-top: 3rem;
 }
 
 /* =============================================
@@ -2389,6 +2294,18 @@ img {
 
 .theme-switch.on .switch-thumb {
   transform: translateX(2rem);
+}
+
+/* Sun icon outside the left side of the track */
+.switch-sun {
+  position: absolute;
+  top: 50%;
+  left: -1.6rem;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  line-height: 1;
+  pointer-events: none;
+  color: #334155;
 }
 
 /* Dark moon icon outside the right side of the track */

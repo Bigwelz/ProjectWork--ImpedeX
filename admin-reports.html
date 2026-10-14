@@ -21,7 +21,7 @@
     </a>
     <div class="topnav-right">
       <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
-      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)">Logout <i class="fas fa-right-from-bracket"></i></button>
     </div>
     <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
   </nav>
@@ -50,7 +50,7 @@
       </nav>
       <div class="sidebar-bottom">
         <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
-          <i class="fas fa-right-from-bracket"></i> Logout
+          Logout <i class="fas fa-right-from-bracket"></i>
         </a>
       </div>
     </aside>
@@ -67,6 +67,27 @@
           <i class="fas fa-print"></i> Print Report
         </button>
       </div>
+
+      <!-- Level Selection -->
+      <div class="dash-card" id="repLevelSelectView">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-layer-group"></i> Select Level</h3>
+        </div>
+        <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">Choose a level to view its reports:</p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem">
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectReportLevel(100)">100 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectReportLevel(200)">200 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectReportLevel(300)">300 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectReportLevel(400)">400 Level</button>
+          <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectReportLevel(500)">500 Level</button>
+        </div>
+      </div>
+
+      <!-- Report Content (shown after level selection) -->
+      <div id="repContentView" class="hidden">
+        <div style="margin-bottom:1rem">
+          <button class="btn btn-outline btn-sm" onclick="backToReportLevels()"><i class="fas fa-arrow-left"></i> Back to Levels</button>
+        </div>
 
       <!-- Report Summary Cards -->
       <div class="stat-cards">
@@ -170,22 +191,33 @@
           <p style="color: var(--text-muted)">Loading...</p>
         </div>
       </div>
+
+      </div><!-- end repContentView -->
+
     </main>
   </div>
 
   <!-- FOOTER -->
-  <footer class="site-footer" style="margin-top: 2rem">
-    <div class="footer-left">
-      <h3 class="footer-title">IFT</h3>
-      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
-    </div>
-    <div class="footer-links">
-      <a href="#">Help Center</a>
-      <a href="#">Terms of Service</a>
-      <a href="#">Contact Support</a>
-    </div>
-    <div class="footer-right">
-      &copy; 2026 ImpedeX Security. All rights reserved.
+  <footer class="lp-footer">
+    <div class="lp-footer-inner">
+      <div class="lp-footer-left">
+        <h3>IFT</h3>
+        <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+      </div>
+      <div class="lp-footer-links">
+        <a href="#">Help Center</a>
+        <a href="#">Terms of Service</a>
+        <div class="lp-footer-dropdown">
+          <button type="button" class="lp-footer-dropdown-trigger">Contact Support <i class="fas fa-chevron-down"></i></button>
+          <div class="lp-footer-dropdown-menu">
+            <a href="tel:08136489243">08136489243</a>
+            <a href="tel:08062142392">08062142392</a>
+          </div>
+        </div>
+      </div>
+      <div class="lp-footer-right">
+        &copy; 2026 ImpedeX Security. All rights reserved.
+      </div>
     </div>
   </footer>
 
@@ -199,13 +231,36 @@
       if (!isLoggedIn("admin")) window.location.href = "admin-login.html";
     </script>
     <script>
+      let selectedReportLevel = null;
+
+      function selectReportLevel(level) {
+        selectedReportLevel = level;
+        document.getElementById("repLevelSelectView").classList.add("hidden");
+        document.getElementById("repContentView").classList.remove("hidden");
+        renderReports();
+      }
+
+      function backToReportLevels() {
+        selectedReportLevel = null;
+        document.getElementById("repContentView").classList.add("hidden");
+        document.getElementById("repLevelSelectView").classList.remove("hidden");
+      }
+
       function repTimeStr(ts) {
         return new Date(ts).toLocaleTimeString();
       }
 
       async function renderReports() {
-        const log = (await apiAdminLog()).slice().reverse();
-        const students = await apiAdminStudents();
+        let log = (await apiAdminLog()).slice().reverse();
+        let students = await apiAdminStudents();
+
+        if (selectedReportLevel) {
+          const levelStr = String(selectedReportLevel);
+          students = students.filter((s) => String(s.level) === levelStr);
+          const matrics = new Set(students.map((s) => s.matric));
+          log = log.filter((e) => matrics.has(e.matric));
+        }
+
         const passCount = log.filter((e) => e.result === "pass").length;
         const failCount = log.filter((e) => e.result === "fail").length;
         const attendanceCount = log.filter((e) => e.result === "attendance").length;

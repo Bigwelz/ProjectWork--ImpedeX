@@ -66,13 +66,11 @@
             </div>
             <div class="reg-photo-actions">
               <label class="reg-photo-btn">
-                <i class="fas fa-cloud-arrow-up"></i> Upload Photo
+                <i class="fas fa-cloud-arrow-up"></i> Upload Photo <span style="color:var(--danger)">*</span>
                 <input type="file" id="regPhotoInput" accept="image/*" hidden />
               </label>
-              <button type="button" class="reg-photo-btn" onclick="openCameraModal()">
-                <i class="fas fa-camera"></i> Take Picture
-              </button>
             </div>
+            <small style="display:block; margin-top:0.7rem; color:var(--text-muted, #64748b); font-size:1.15rem; text-align:center;">Photo is <strong>compulsory</strong> — use a clear, front-facing picture; it is shown at the exam-day checkpoint.</small>
             <button type="button" class="reg-photo-remove hidden" id="photoRemoveBtn" onclick="clearPhotoUpload()">
               <i class="fas fa-times"></i>
             </button>
@@ -198,44 +196,10 @@
         <h3>Registration Successful!</h3>
         <p>
           Your account has been created. Log in to register your courses,
-          then the Enroll Biometrics step will capture your face and
-          fingerprint as your biometric reference for exam day.
+          then enrol your fingerprint on the scanner — that fingerprint,
+          together with this photo, verifies you on exam day.
         </p>
         <a href="student-dashboard.html" class="btn btn-primary">Continue to Dashboard</a>
-      </div>
-    </div>
-
-    <!-- Camera Modal -->
-    <div class="modal-overlay hidden" id="cameraModal">
-      <div class="modal-box">
-        <div class="modal-head">
-          <h3><i class="fas fa-camera"></i> Take Profile Picture</h3>
-          <button type="button" class="modal-close" onclick="closeCameraModal()">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="camera-frame" id="modalCameraFrame">
-          <video id="modalVideoFeed" autoplay playsinline></video>
-          <div class="camera-overlay">
-            <div class="face-guide"></div>
-          </div>
-          <div class="camera-placeholder" id="modalCameraPlaceholder">
-            <i class="fas fa-camera-rotate"></i>
-            <p>Camera will start when you click "Start Camera"</p>
-          </div>
-          <canvas id="modalSnapCanvas" style="display:none"></canvas>
-        </div>
-        <div class="camera-btns">
-          <button type="button" class="btn btn-outline" id="modalStartCamBtn" onclick="modalStartCamera()">
-            <i class="fas fa-video"></i> Start Camera
-          </button>
-          <button type="button" class="btn btn-primary hidden" id="modalCaptureBtn" onclick="modalCapturePhoto()">
-            <i class="fas fa-camera"></i> Capture
-          </button>
-          <button type="button" class="btn btn-outline hidden" id="modalRetakeBtn" onclick="modalRetakePhoto()">
-            <i class="fas fa-rotate-left"></i> Retake
-          </button>
-        </div>
       </div>
     </div>
 

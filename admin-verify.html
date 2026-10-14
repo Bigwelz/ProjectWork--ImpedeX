@@ -28,12 +28,90 @@
         border: var(--border);
         background: var(--dark3);
       }
-      .av-video {
-        width: 100%;
+      /* ── Step 1: level picker ── */
+      .av-level-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1.2rem;
+        margin-top: 1.4rem;
+      }
+      @media (max-width: 700px) {
+        .av-level-grid { grid-template-columns: repeat(2, 1fr); }
+      }
+      .av-level-btn {
+        padding: 2.2rem 1rem;
         border-radius: var(--radius);
         border: var(--border);
-        background: #000;
+        background: var(--dark3);
+        cursor: pointer;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
       }
+      .av-level-btn span { font-size: 1.2rem; font-weight: 600; color: var(--text-muted); }
+      .av-level-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-color: var(--primary);
+      }
+      .av-crumb {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--primary);
+        background: rgba(15, 82, 186, 0.1);
+        border: 1px solid rgba(15, 82, 186, 0.3);
+        padding: 0.3rem 0.9rem;
+        border-radius: 100px;
+        margin-left: 0.8rem;
+        vertical-align: middle;
+      }
+      .av-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      /* ── Result modal (photo + details + seat) ── */
+      .av-modal-grid {
+        display: grid;
+        grid-template-columns: 18rem 1fr;
+        gap: 2rem;
+        align-items: start;
+        margin-top: 1.6rem;
+      }
+      @media (max-width: 640px) {
+        .av-modal-grid { grid-template-columns: 1fr; }
+      }
+      .av-modal-photo-ph {
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: var(--radius);
+        border: var(--border);
+        background: var(--dark3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 6rem;
+        color: var(--text-muted);
+      }
+      .av-status-box {
+        margin-top: 1.4rem;
+        padding: 1.6rem;
+        border-radius: var(--radius);
+        border: var(--border);
+        font-size: 1.5rem;
+      }
+      .av-status-box.seat { border-color: var(--success); background: rgba(56, 161, 105, 0.1); }
+      .av-status-box.seat h4 { margin-bottom: 0.6rem; }
+      .av-status-box.seat .av-seat-num { font-size: 2.6rem; font-weight: 800; color: var(--success); }
+      .av-status-box.warn { border-color: var(--warning); background: rgba(245, 158, 11, 0.1); }
+      .av-status-box.err { border-color: var(--danger); background: rgba(229, 62, 62, 0.1); }
       .av-badge {
         display: inline-flex;
         align-items: center;
@@ -67,6 +145,37 @@
         transform: translateY(-1px);
         box-shadow: 0 2px 8px rgba(0,0,0,.15);
       }
+      /* ── Fast scan (exam-day identification) ── */
+      .av-scan-zone {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.2rem;
+        padding: 2.4rem 1rem 1.6rem;
+        text-align: center;
+      }
+      .av-scan-ring {
+        width: 12rem;
+        height: 12rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 82, 186, .08);
+        border: 2px dashed var(--primary);
+        animation: avPulse 1.6s ease-in-out infinite;
+        transition: all .3s;
+      }
+      .av-scan-ring i { font-size: 5.4rem; color: var(--primary); transition: color .3s; }
+      .av-scan-ring.ok { animation: none; border-style: solid; border-color: var(--success); background: rgba(56,161,105,.1); }
+      .av-scan-ring.ok i { color: var(--success); }
+      .av-scan-ring.err { animation: none; border-style: solid; border-color: var(--danger); background: rgba(229,62,62,.1); }
+      .av-scan-ring.err i { color: var(--danger); }
+      @keyframes avPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.06); opacity: .7; }
+      }
+      .av-scan-msg { font-size: 1.7rem; font-weight: 600; margin: 0; }
     </style>
   </head>
   <body class="student-body">
@@ -79,7 +188,7 @@
     </a>
     <div class="topnav-right">
       <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
-      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)">Logout <i class="fas fa-right-from-bracket"></i></button>
     </div>
     <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
   </nav>
@@ -108,7 +217,7 @@
       </nav>
       <div class="sidebar-bottom">
         <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
-          <i class="fas fa-right-from-bracket"></i> Logout
+          Logout <i class="fas fa-right-from-bracket"></i>
         </a>
       </div>
     </aside>
@@ -123,102 +232,78 @@
         </div>
       </div>
 
-        <div class="dash-card">
-          <h3><i class="fas fa-layer-group"></i> Step 1: Select Level</h3>
-          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.4rem">
-            Choose the student level (e.g. 500L) to see available courses.
+        <!-- STEP 1: LEVEL -->
+        <div class="dash-card" id="avLevelCard">
+          <h3><i class="fas fa-layer-group"></i> Step 1 — Select Level</h3>
+          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 0">
+            Choose the level whose exam is being written at this checkpoint (100 – 500).
           </p>
-          <div class="filter-bar" style="margin: 0">
-            <div class="filter-group" style="flex: 1">
-              <select id="avLevelSelect" class="search-input" onchange="avLoadCoursesByLevel()">
-                <option value="">-- Select Level --</option>
-                <option value="200">200 Level</option>
-                <option value="300">300 Level</option>
-                <option value="400">400 Level</option>
-                <option value="500">500 Level</option>
-              </select>
-              <i class="fas fa-graduation-cap filter-icon"></i>
-            </div>
+          <div class="av-level-grid">
+            <button class="av-level-btn" onclick="avPickLevel(100)">100 <span>Level</span></button>
+            <button class="av-level-btn" onclick="avPickLevel(200)">200 <span>Level</span></button>
+            <button class="av-level-btn" onclick="avPickLevel(300)">300 <span>Level</span></button>
+            <button class="av-level-btn" onclick="avPickLevel(400)">400 <span>Level</span></button>
+            <button class="av-level-btn" onclick="avPickLevel(500)">500 <span>Level</span></button>
           </div>
         </div>
 
+        <!-- STEP 2: COURSES FOR THE LEVEL -->
         <div class="dash-card mt-1 hidden" id="avCourseListCard">
-          <h3><i class="fas fa-book-open"></i> Step 2: Select Course</h3>
+          <div class="av-card-head">
+            <h3><i class="fas fa-book-open"></i> Step 2 — Select Course <span class="av-crumb" id="avLevelBadge">—</span></h3>
+            <button class="btn btn-outline btn-sm" onclick="avBackToLevels()"><i class="fas fa-arrow-left"></i> Change Level</button>
+          </div>
           <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">
             Click the course the students are writing today.
           </p>
           <div id="avCourseList" style="margin-top: 0.8rem"></div>
         </div>
 
-        <div class="dash-card mt-1 hidden" id="avStudentLookupCard">
-          <h3><i class="fas fa-magnifying-glass"></i> Step 3: Look Up Student</h3>
-          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.4rem">
-            Enter the matric number of the student standing at the checkpoint for <strong id="avSelectedCourseLabel">—</strong>.
+        <!-- STEP 3: FINGERPRINT SCAN -->
+        <div class="dash-card mt-1 hidden" id="avScanCard">
+          <div class="av-card-head">
+            <h3><i class="fas fa-fingerprint"></i> Step 3 — Fingerprint Scan <span class="av-crumb" id="avCourseBadge">—</span></h3>
+            <button class="btn btn-outline btn-sm" onclick="avBackToCourses()"><i class="fas fa-arrow-left"></i> Change Course</button>
+          </div>
+          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 0">
+            Place the student's finger on the connected exam scanner (ZK9500). On a match, the student's
+            record, registration photo and allocated seat pop up automatically.
           </p>
-          <div class="filter-bar" style="margin: 0">
-            <div class="filter-group" style="flex: 1">
-              <input type="text" id="avMatricInput" class="search-input" placeholder="e.g. 20211292002" maxlength="11" inputmode="numeric" />
-              <i class="fas fa-id-card filter-icon"></i>
-            </div>
-            <button class="btn btn-primary" onclick="avLookup()"><i class="fas fa-search"></i> Find Student</button>
+          <div class="av-scan-zone">
+            <div class="av-scan-ring" id="avScanRing"><i class="fas fa-fingerprint"></i></div>
+            <p class="av-scan-msg" id="avScanMsg">Put your finger on the fingerprint scanner for verification.</p>
+            <p class="fp-status" id="avScanStatus"></p>
+            <div id="avScanResult" style="width: 100%; max-width: 60rem"></div>
+            <button class="btn btn-outline hidden" id="avScanRetryBtn" onclick="avStartFastScan()">
+              <i class="fas fa-rotate"></i> Scan Next Student
+            </button>
           </div>
         </div>
 
-        <div id="avNotFound" class="dash-card mt-1 hidden">
-          <p><i class="fas fa-circle-exclamation" style="color: var(--danger)"></i> No student record found for that matric number on this device's local database.</p>
-        </div>
-
-        <div id="avPanel" class="dash-card mt-1 hidden">
-          <div class="av-grid">
-            <!-- Reference record -->
-            <div>
-              <h3><i class="fas fa-id-badge"></i> Enrolled Record</h3>
-              <div style="display:flex; gap:1.6rem; align-items:flex-start; margin-top: 1rem">
-                <img id="avPhoto" class="av-photo" src="" alt="Enrolled reference photo" />
-                <div>
-                  <h4 id="avName" style="font-size: 1.8rem; margin-bottom: 0.4rem">—</h4>
-                  <p id="avMeta" style="color: var(--text-muted); font-size: 1.3rem; margin-bottom: 1rem">—</p>
-                  <p style="margin-bottom: 0.6rem"><span class="av-badge" id="avFaceBadge">—</span> Face enrolled</p>
-                  <p><span class="av-badge" id="avFpBadge">—</span> Fingerprint enrolled</p>
-                </div>
-              </div>
-              <div id="avCourseBox" style="margin-top: 1.4rem"></div>
+        <!-- STUDENT RESULT MODAL: photo + details + seat number -->
+        <div class="modal-overlay hidden" id="avResultModal">
+          <div class="modal-box" style="width: 94%; max-width: 64rem">
+            <div class="modal-head">
+              <h3 id="avModalTitle"><i class="fas fa-id-badge"></i> Student Verified</h3>
+              <button class="modal-close" onclick="avCloseModal()"><i class="fas fa-times"></i></button>
             </div>
-
-            <!-- Live checkpoint -->
-            <div>
-              <h3><i class="fas fa-camera"></i> Live Checkpoint Capture</h3>
-              <video id="avVideo" class="av-video hidden" autoplay playsinline></video>
-              <div class="camera-btns" style="margin-top: 1rem">
-                <button class="btn btn-outline" id="avStartCamBtn" onclick="avStartCamera()"><i class="fas fa-video"></i> Start Camera</button>
-                <button class="btn btn-primary hidden" id="avCaptureBtn" onclick="avCaptureAndMatch()"><i class="fas fa-camera"></i> Capture &amp; Match Face</button>
+            <div class="av-modal-grid">
+              <div>
+                <img id="avModalPhoto" class="av-photo" src="" alt="Registration photo" />
+                <div id="avModalPhotoPh" class="av-modal-photo-ph hidden"><i class="fas fa-user"></i></div>
               </div>
-              <div id="avFaceResult"></div>
-
-              <div style="margin-top: 2rem; padding-top: 1.6rem; border-top: var(--border)">
-                <h3><i class="fas fa-fingerprint"></i> Fingerprint Check</h3>
-                <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">
-                  Fingerprint credentials are locked to the device that
-                  enrolled them. This step only works if you run it ON THE
-                  STUDENT'S OWN enrolled laptop/phone (hand it to them, or use
-                  a checkpoint device they previously registered on) — this
-                  admin computer cannot read a credential enrolled elsewhere.
-                </p>
-                <button class="btn btn-outline" id="avFpBtn" onclick="avVerifyFingerprint()"><i class="fas fa-fingerprint"></i> Run Fingerprint Check on This Device</button>
-                <p class="fp-status" id="avFpStatus"></p>
+              <div>
+                <h4 id="avModalName" style="font-size: 2rem; margin-bottom: 0.4rem">—</h4>
+                <p id="avModalMeta" style="color: var(--text-muted); font-size: 1.4rem; margin-bottom: 0.6rem">—</p>
+                <p id="avModalCourse" style="font-size: 1.4rem; margin-bottom: 0.4rem">—</p>
+                <div id="avModalStatus"></div>
               </div>
-
-              <div style="margin-top: 2rem">
-                <button class="btn btn-primary full-btn" id="avApproveBtn" onclick="avApproveAndSeat()" disabled><i class="fas fa-chair"></i> Verify &amp; Allocate Seat</button>
-                <p style="color: var(--text-muted); font-size: 1.3rem; margin-top: 1rem">
-                  <i class="fas fa-circle-info"></i> Both <strong>face</strong> and <strong>fingerprint</strong> checks must pass before seat allocation.
-                  Seat allocation happens here on exam day <strong>only</strong>
-                  — clicking this approves the student and assigns their seat server-side, so candidates
-                  cannot know where they sit before being confirmed at the checkpoint.
-                </p>
-              </div>
-              <div id="avSeatResult" style="margin-top: 1rem"></div>
-              <div id="avAttendanceLog" style="margin-top: 1rem"></div>
+            </div>
+            <div class="camera-btns" style="margin-top: 1.8rem; margin-bottom: 0">
+              <button class="btn btn-primary" onclick="avScanNextFromModal()">
+                <i class="fas fa-fingerprint"></i> Scan Next Student
+              </button>
+              <button class="btn btn-outline" onclick="avCloseModal()">Close</button>
             </div>
           </div>
         </div>
@@ -226,23 +311,30 @@
   </div>
 
   <!-- FOOTER -->
-  <footer class="site-footer" style="margin-top: 2rem">
-    <div class="footer-left">
-      <h3 class="footer-title">IFT</h3>
-      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
-    </div>
-    <div class="footer-links">
-      <a href="#">Help Center</a>
-      <a href="#">Terms of Service</a>
-      <a href="#">Contact Support</a>
-    </div>
-    <div class="footer-right">
-      &copy; 2026 ImpedeX Security. All rights reserved.
+  <footer class="lp-footer">
+    <div class="lp-footer-inner">
+      <div class="lp-footer-left">
+        <h3>IFT</h3>
+        <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+      </div>
+      <div class="lp-footer-links">
+        <a href="#">Help Center</a>
+        <a href="#">Terms of Service</a>
+        <div class="lp-footer-dropdown">
+          <button type="button" class="lp-footer-dropdown-trigger">Contact Support <i class="fas fa-chevron-down"></i></button>
+          <div class="lp-footer-dropdown-menu">
+            <a href="tel:08136489243">08136489243</a>
+            <a href="tel:08062142392">08062142392</a>
+          </div>
+        </div>
+      </div>
+      <div class="lp-footer-right">
+        &copy; 2026 ImpedeX Security. All rights reserved.
+      </div>
     </div>
   </footer>
 
     <script src="js/api.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="js/biometrics.js"></script>
     <script src="js/app.js"></script>
     <script>
@@ -253,41 +345,69 @@
       if (!isLoggedIn("admin")) window.location.href = "admin-login.html";
     </script>
     <script>
-      let avStream = null;
       let avCurrentStudent = null;
       let avSelectedCourse = null;
-      let avFacePassed = false;
-      let avFpPassed = false;
+      let avSelectedLevel = null;
+      let avFpIndex = null;   // [{ matric, template }] — scanner ("zk:") records
+      let avScanning = false;
+      let avCoursesCache = [];
+      let avFlowToken = 0;    // bumped on wizard navigation; cancels in-flight scans
 
-      (function prefillFromQuery() {
-        const params = new URLSearchParams(window.location.search);
-        const matric = params.get("matric");
-        if (matric) {
-          document.getElementById("avMatricInput").value = matric;
-          avLookup();
-        }
-      })();
-
-      async function avLoadCoursesByLevel() {
-        const level = document.getElementById("avLevelSelect").value;
-        const listCard = document.getElementById("avCourseListCard");
-        const listEl = document.getElementById("avCourseList");
-        const lookupCard = document.getElementById("avStudentLookupCard");
-
-        if (!level) {
-          listCard.classList.add("hidden");
-          lookupCard.classList.add("hidden");
-          avSelectedCourse = null;
+      /* Deep link admin-verify.html?matric=... → jump straight to that
+         student's level (and course, if they selected one). */
+      (async function prefillFromQuery() {
+        const matric = new URLSearchParams(window.location.search).get("matric");
+        if (!matric) return;
+        let rec;
+        try {
+          rec = await apiAdminStudent(matric);
+        } catch (e) {
           return;
         }
+        const level = parseInt(String(rec.level || "").replace(/\D/g, ""), 10);
+        if (!level) return;
+        await avPickLevel(level);
+        const selected = rec.examSelection && rec.examSelection.course_code;
+        const hit = selected && avCoursesCache.find((c) => c.code === selected);
+        if (hit) avSelectCourse(hit.code, hit.title);
+      })();
 
-        listEl.innerHTML = `<p><i class="fas fa-spinner fa-spin"></i> Loading courses...</p>`;
-        listCard.classList.remove("hidden");
-        lookupCard.classList.add("hidden");
+      /* ── Step 1 → Step 2: choose a level, list its courses ── */
+      async function avPickLevel(level) {
+        avSelectedLevel = level;
         avSelectedCourse = null;
+        avFlowToken++;
+        avScanning = false;
+        document.getElementById("avLevelBadge").textContent = level + " Level";
+        document.getElementById("avLevelCard").classList.add("hidden");
+        document.getElementById("avScanCard").classList.add("hidden");
+        document.getElementById("avCourseListCard").classList.remove("hidden");
+        await avLoadCoursesByLevel(level);
+      }
 
+      function avBackToLevels() {
+        avFlowToken++;
+        avScanning = false;
+        avSelectedCourse = null;
+        avSelectedLevel = null;
+        document.getElementById("avCourseListCard").classList.add("hidden");
+        document.getElementById("avScanCard").classList.add("hidden");
+        document.getElementById("avLevelCard").classList.remove("hidden");
+      }
+
+      function avBackToCourses() {
+        avFlowToken++;
+        avScanning = false;
+        document.getElementById("avScanCard").classList.add("hidden");
+        document.getElementById("avCourseListCard").classList.remove("hidden");
+      }
+
+      async function avLoadCoursesByLevel(level) {
+        const listEl = document.getElementById("avCourseList");
+        listEl.innerHTML = `<p><i class="fas fa-spinner fa-spin"></i> Loading courses...</p>`;
         try {
           const courses = await apiAdminCoursesByLevel(level);
+          avCoursesCache = courses;
           if (!courses.length) {
             listEl.innerHTML = `<p style="color: var(--text-muted)">No courses found for ${level}00 level.</p>`;
             return;
@@ -295,7 +415,8 @@
           listEl.innerHTML = courses.map((c) => {
             const sched = c.schedule;
             const schedText = sched ? `${sched.date} • ${sched.time} • ${sched.hall}` : "Not scheduled";
-            return `<button class="btn btn-outline av-course-btn" onclick="avSelectCourse('${c.code}', '${c.title.replace(/'/g, "\\'")}')">
+            const title = String(c.title).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            return `<button class="btn btn-outline av-course-btn" onclick="avSelectCourse('${c.code}', '${title}', this)">
               <strong>${c.code}</strong> — ${c.title}
               <span style="display:block;font-size:1.1rem;color:var(--text-muted);margin-top:0.2rem">${schedText}</span>
             </button>`;
@@ -305,183 +426,212 @@
         }
       }
 
-      function avSelectCourse(code, title) {
+      /* ── Step 2 → Step 3: pick the course, start the scanner ── */
+      function avSelectCourse(code, title, btn) {
         avSelectedCourse = { code, title };
-        document.getElementById("avSelectedCourseLabel").textContent = `${code} — ${title}`;
-        document.getElementById("avStudentLookupCard").classList.remove("hidden");
-        document.getElementById("avMatricInput").focus();
-
-        document.querySelectorAll(".av-course-btn").forEach((btn) => {
-          btn.classList.remove("btn-primary");
-          btn.classList.add("btn-outline");
+        avFlowToken++;
+        avScanning = false;
+        document.querySelectorAll(".av-course-btn").forEach((b) => {
+          b.classList.remove("btn-primary");
+          b.classList.add("btn-outline");
         });
-        event.currentTarget.classList.remove("btn-outline");
-        event.currentTarget.classList.add("btn-primary");
+        if (btn) {
+          btn.classList.remove("btn-outline");
+          btn.classList.add("btn-primary");
+        }
+        document.getElementById("avCourseBadge").textContent = code;
+        document.getElementById("avCourseListCard").classList.add("hidden");
+        document.getElementById("avScanCard").classList.remove("hidden");
+        avStartFastScan();
       }
 
-      async function avLookup() {
-        const matric = document.getElementById("avMatricInput").value.trim();
-        let record;
-        try {
-          record = await apiAdminStudent(matric);
-        } catch (err) {
-          document.getElementById("avNotFound").classList.remove("hidden");
-          document.getElementById("avPanel").classList.add("hidden");
-          document.getElementById("avNotFound").querySelector("p").innerHTML =
-            `<i class="fas fa-circle-exclamation" style="color: var(--danger)"></i> ${err.message}`;
-          avCurrentStudent = null;
-          return;
-        }
-        document.getElementById("avNotFound").classList.add("hidden");
-        document.getElementById("avPanel").classList.remove("hidden");
-        avCurrentStudent = record;
-
-        document.getElementById("avPhoto").src = record.photo || "";
-        document.getElementById("avName").textContent = `${record.firstName || ""} ${record.lastName || ""}`.trim() || "(No name on file)";
-        document.getElementById("avMeta").innerHTML = `${record.matric} &bull; ${record.department || "—"} &bull; ${record.level || "—"}`;
-
-        const faceBadge = document.getElementById("avFaceBadge");
-        faceBadge.textContent = record.faceDescriptor ? "Yes" : "No";
-        faceBadge.className = "av-badge " + (record.faceDescriptor ? "yes" : "no");
-
-        const fpBadge = document.getElementById("avFpBadge");
-        fpBadge.textContent = record.fingerprintCredentialId ? "Yes" : "No";
-        fpBadge.className = "av-badge " + (record.fingerprintCredentialId ? "yes" : "no");
-
-        const courseBox = document.getElementById("avCourseBox");
-        const course = record.examSelection
-          ? { code: record.examSelection.course_code, title: (record.registeredCourses || []).find((c) => c.code === record.examSelection.course_code)?.title || "" }
-          : (record.registeredCourses || [])[0];
-        if (course) {
-          const sched = record.schedule;
-          courseBox.innerHTML = `<p><strong>Sitting for:</strong> ${course.code} — ${course.title.replace(/&amp;/g,"&")}</p>
-            <p style="color:var(--text-muted); font-size:1.3rem; margin-top:0.4rem">${sched ? `${sched.date} • ${sched.time} • ${sched.hall}` : "Not yet scheduled by admin — set a schedule above to seat this student."}</p>`;
-        } else {
-          courseBox.innerHTML = `<p style="color: var(--text-muted)">This student has not selected a course to sit for yet.</p>`;
-        }
-
-        document.getElementById("avFaceResult").innerHTML = "";
-        document.getElementById("avFpStatus").textContent = "";
-        document.getElementById("avSeatResult").innerHTML = "";
-        document.getElementById("avAttendanceLog").innerHTML = "";
-        avFacePassed = false;
-        avFpPassed = false;
-        updateApproveBtn();
-
-        if (record.seat) {
-          document.getElementById("avSeatResult").innerHTML =
-            `<div class="av-result-box match"><i class="fas fa-chair" style="color:var(--success)"></i> Already seated — Hall ${record.seat.hall}, Row ${record.seat.row}, Seat ${record.seat.seat}.</div>`;
-        }
+      /* ── FAST SCAN: one live finger vs every enrolled template ── */
+      async function avLoadFingerprintIndex() {
+        avFpIndex = await apiAdminFingerprints();
+        return avFpIndex;
       }
 
-      async function avStartCamera() {
-        const video = document.getElementById("avVideo");
+      async function avStartFastScan() {
+        if (avScanning || !avSelectedCourse) return;
+        avScanning = true;
+        const token = avFlowToken;
+        const ring = document.getElementById("avScanRing");
+        const msg = document.getElementById("avScanMsg");
+        const statusEl = document.getElementById("avScanStatus");
+        const resultBox = document.getElementById("avScanResult");
+        const retryBtn = document.getElementById("avScanRetryBtn");
+        ring.className = "av-scan-ring";
+        msg.textContent = "Put your finger on the fingerprint scanner for verification.";
+        statusEl.textContent = "";
+        statusEl.className = "fp-status";
+        resultBox.innerHTML = "";
+        retryBtn.classList.add("hidden");
         try {
-          avStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          video.srcObject = avStream;
-          video.classList.remove("hidden");
-          document.getElementById("avStartCamBtn").classList.add("hidden");
-          document.getElementById("avCaptureBtn").classList.remove("hidden");
-        } catch {
-          showToast("Camera access denied.", "danger");
-        }
-      }
+          const health = await bridgeHealth();
+          if (!health) throw new Error(SCANNER_BRIDGE_DOWN_MSG);
+          if (token !== avFlowToken) return;
 
-      async function avCaptureAndMatch() {
-        if (!avCurrentStudent) return;
-        const video = document.getElementById("avVideo");
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 480;
-        canvas.height = video.videoHeight || 360;
-        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+          if (!avFpIndex) {
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading enrolled fingerprints...';
+            await avLoadFingerprintIndex();
+          }
+          if (token !== avFlowToken) return;
+          if (!avFpIndex.length) {
+            statusEl.textContent = "No scanner-enrolled fingerprints on record yet. Students must enrol while the exam scanner (ZK9500) is connected.";
+            statusEl.className = "fp-status warn";
+            ring.classList.add("err");
+            return;
+          }
 
-        const resultBox = document.getElementById("avFaceResult");
-        resultBox.innerHTML = `<p style="margin-top:1rem"><i class="fas fa-spinner fa-spin"></i> Analysing face...</p>`;
+          statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Waiting for finger — place it on the scanner...';
+          const res = await matchFingerprintsOnScanner(avFpIndex.map((t) => t.template));
+          if (token !== avFlowToken) return;
+          const hit = avFpIndex[res.bestIndex];
+          if (!hit) throw new Error("Scanner returned an unknown student index.");
 
-        const liveDescriptor = typeof getFaceDescriptor === "function" ? await getFaceDescriptor(canvas) : null;
-
-        if (!liveDescriptor) {
-          resultBox.innerHTML = `<div class="av-result-box nomatch">No face clearly detected in the live capture. Try again with better lighting.</div>`;
-          return;
-        }
-        if (!avCurrentStudent.faceDescriptor) {
-          resultBox.innerHTML = `<div class="av-result-box nomatch">This student has no enrolled face reference yet. They must complete the student-side Identity Verification (face + fingerprint enrollment) first.</div>`;
-          return;
-        }
-
-        const { isMatch, distance } = faceMatches(liveDescriptor, avCurrentStudent.faceDescriptor);
-        const confidence = Math.max(0, (100 - distance * 100)).toFixed(1);
-        avFacePassed = isMatch;
-        updateApproveBtn();
-        resultBox.innerHTML = isMatch
-          ? `<div class="text-result-box" style="border-color:var(--success);background:rgba(56,161,105,.08)"><i class="fas fa-circle-check" style="color:var(--success)"></i> Face MATCHES enrolled record — confidence ${confidence}%</div>`
-          : `<div class="text-result-box" style="border-color:var(--danger);background:rgba(229,62,62,.08)"><i class="fas fa-triangle-exclamation" style="color:var(--danger)"></i> Face does NOT match enrolled record — confidence ${confidence}%. Possible impersonation — do not seat this student.</div>`;
-        try {
-          await apiAdminVerify(avCurrentStudent.matric, isMatch ? "pass" : "fail", `Face check — confidence ${confidence}%`);
-        } catch (err) {
-          console.warn(err);
-        }
-
-        if (avStream) avStream.getTracks().forEach((t) => t.stop());
-      }
-
-      async function avVerifyFingerprint() {
-        if (!avCurrentStudent) return;
-        const statusEl = document.getElementById("avFpStatus");
-        if (!avCurrentStudent.fingerprintCredentialId) {
-          statusEl.textContent = "This student has no enrolled fingerprint credential.";
-          statusEl.className = "fp-status warn";
-          return;
-        }
-        try {
-          await verifyFingerprint(avCurrentStudent.fingerprintCredentialId);
-          statusEl.textContent = "Fingerprint verified — this device holds the enrolled credential.";
+          statusEl.textContent = "Fingerprint matched (score " + res.score + ").";
           statusEl.className = "fp-status ok";
-          avFpPassed = true;
-          updateApproveBtn();
-          await apiAdminVerify(avCurrentStudent.matric, "pass", "Fingerprint check passed");
+          ring.classList.add("ok");
+
+          let rec;
+          try {
+            rec = await apiAdminStudent(hit.matric);
+          } catch (e) {
+            throw new Error("Matched student record could not be loaded: " + (e.message || e));
+          }
+          if (token !== avFlowToken) return;
+          avCurrentStudent = rec;
+
+          // The scan is scoped to the selected course — only a student
+          // registered for it (and not seated for a different exam) passes.
+          const registered = (rec.registeredCourses || []).some((c) => c.code === avSelectedCourse.code);
+          const selection = rec.examSelection ? rec.examSelection.course_code : null;
+          if (!registered) {
+            avShowResultModal(rec, {
+              kind: "warn",
+              message: `Fingerprint matched, but this student has NOT registered for ${avSelectedCourse.code}. They cannot be seated for this exam.`,
+            });
+            return;
+          }
+          if (selection && selection !== avSelectedCourse.code) {
+            avShowResultModal(rec, {
+              kind: "warn",
+              message: `Fingerprint matched, but this student selected ${selection} for exam day — not ${avSelectedCourse.code}.`,
+            });
+            return;
+          }
+
+          try {
+            await apiAdminVerify(hit.matric, "pass", "Fingerprint matched via scanner (score " + res.score + ")");
+          } catch (e) {
+            console.warn(e);
+          }
+          if (token !== avFlowToken) return;
+
+          // Fingerprint passed → approve + allocate the seat, then pop up
+          // the student's record, photo and seat number.
+          const seatInfo = await avAutoApprove();
+          if (token !== avFlowToken) return;
+
+          if (seatInfo.seat) {
+            avShowResultModal(rec, { kind: "seat", seat: seatInfo.seat, already: seatInfo.already });
+          } else {
+            avShowResultModal(rec, {
+              kind: "err",
+              message: "Fingerprint verified, but a seat could not be allocated: " + (seatInfo.error || "unknown error"),
+            });
+          }
         } catch (err) {
-          statusEl.textContent = "Fingerprint check failed/cancelled, or this is not the student's enrolled device: " + (err.message || err);
+          if (token !== avFlowToken) return;
+          const errTxt = err && err.message ? err.message : String(err);
+          statusEl.textContent = errTxt;
           statusEl.className = "fp-status err";
-          avFpPassed = false;
-          updateApproveBtn();
-          await apiAdminVerify(avCurrentStudent.matric, "fail", "Fingerprint check failed/cancelled");
-        }
-      }
-
-      function updateApproveBtn() {
-        const btn = document.getElementById("avApproveBtn");
-        if (!btn) return;
-        const ready = avFacePassed && avFpPassed;
-        btn.disabled = !ready;
-        btn.title = ready ? "" : "Both face and fingerprint checks must pass first.";
-      }
-
-      async function avApproveAndSeat() {
-        if (!avCurrentStudent) return;
-        if (!avFacePassed || !avFpPassed) {
-          showToast("Both face and fingerprint checks must pass before allocating a seat.", "danger");
-          return;
-        }
-        if (!confirm(`Approve ${avCurrentStudent.matric} and allocate a seat now?`)) return;
-        const btn = event.target;
-        btn.disabled = true;
-        try {
-          const data = await apiAdminApprove(avCurrentStudent.matric, avSelectedCourse ? avSelectedCourse.code : null);
-          document.getElementById("avSeatResult").innerHTML =
-            `<div style="margin-top:1rem;padding:1.4rem;border-radius:var(--radius);background:rgba(56,161,105,.1);border:1px solid var(--success)">
-              <h4 style="margin-bottom:0.6rem"><i class="fas fa-circle-check" style="color:var(--success)"></i> Approved &amp; Seated</h4>
-              <p style="font-size:1.4rem">Hall <strong>${data.seat.hall}</strong> • Row <strong>${data.seat.row}</strong> • Seat <strong>${data.seat.seat}</strong></p>
+          ring.classList.add("err");
+          if (err && err.noMatch) {
+            resultBox.innerHTML = `<div class="av-result-box nomatch">
+              <i class="fas fa-triangle-exclamation" style="color:var(--danger)"></i>
+              This finger does not match any enrolled student for this checkpoint. Confirm the list is current
+              (reload the page after new enrolments) and ask the student to place the correct finger.
             </div>`;
-          document.getElementById("avAttendanceLog").innerHTML =
-            `<p style="color: var(--success)"><i class="fas fa-clipboard-check"></i> Approved at ${new Date().toLocaleTimeString()}. Seat allocated server-side.</p>`;
-          showToast(`Seat allocated: Hall ${data.seat.hall}, Seat ${data.seat.seat}`, "success");
-        } catch (err) {
-          showToast(err.message || "Could not allocate seat.", "danger");
+          }
         } finally {
-          btn.disabled = false;
+          if (token === avFlowToken) {
+            avScanning = false;
+            retryBtn.classList.remove("hidden");
+          }
         }
       }
+
+      /* After a passing fingerprint check: approve the student and allocate
+         their seat server-side (the route is idempotent — an already-seated
+         student keeps their original seat). */
+      async function avAutoApprove() {
+        const rec = avCurrentStudent;
+        if (!rec) return { error: "No student record loaded." };
+        if (rec.seat) return { seat: rec.seat, already: true };
+        try {
+          const data = await apiAdminApprove(rec.matric, avSelectedCourse ? avSelectedCourse.code : null);
+          rec.seat = data.seat;
+          showToast(`Seat allocated: Hall ${data.seat.hall}, Seat ${data.seat.seat}`, "success");
+          return { seat: data.seat };
+        } catch (err) {
+          return { error: err.message || String(err) };
+        }
+      }
+
+      /* ── Result modal: photo + details + seat number ── */
+      function avShowResultModal(rec, info) {
+        avCurrentStudent = rec;
+        const photo = document.getElementById("avModalPhoto");
+        const ph = document.getElementById("avModalPhotoPh");
+        if (rec.photo) {
+          photo.src = rec.photo;
+          photo.style.display = "";
+          ph.classList.add("hidden");
+        } else {
+          photo.removeAttribute("src");
+          photo.style.display = "none";
+          ph.classList.remove("hidden");
+        }
+        document.getElementById("avModalName").textContent =
+          `${rec.firstName || ""} ${rec.lastName || ""}`.trim() || "(No name on file)";
+        document.getElementById("avModalMeta").innerHTML =
+          `${rec.matric} &bull; ${rec.department || "—"} &bull; ${rec.level || "—"}`;
+        const courseRec = (rec.registeredCourses || []).find((c) => c.code === avSelectedCourse.code);
+        document.getElementById("avModalCourse").innerHTML =
+          `<strong>Sitting for:</strong> ${avSelectedCourse.code}${courseRec ? " — " + courseRec.title : ""}`;
+
+        const title = document.getElementById("avModalTitle");
+        const statusEl = document.getElementById("avModalStatus");
+        if (info.kind === "seat") {
+          title.innerHTML = '<i class="fas fa-circle-check" style="color:var(--success)"></i> Verified &amp; Seated';
+          statusEl.innerHTML = `<div class="av-status-box seat">
+            <h4><i class="fas fa-chair" style="color:var(--success)"></i> ${info.already ? "Already Seated" : "Approved &amp; Seated"}</h4>
+            <p style="margin:0.4rem 0 0.2rem">Seat Number: <span class="av-seat-num">${info.seat.seat}</span></p>
+            <p style="font-size:1.4rem; margin:0">Hall <strong>${info.seat.hall}</strong> &bull; Row <strong>${info.seat.row}</strong></p>
+            <p style="font-size:1.3rem; color:var(--text-muted); margin:0.6rem 0 0">Approved at ${new Date().toLocaleTimeString()} — seat allocated server-side.</p>
+          </div>`;
+        } else if (info.kind === "warn") {
+          title.innerHTML = '<i class="fas fa-triangle-exclamation" style="color:var(--warning)"></i> Cannot Seat Student';
+          statusEl.innerHTML = `<div class="av-status-box warn"><i class="fas fa-circle-exclamation"></i> ${info.message}</div>`;
+        } else {
+          title.innerHTML = '<i class="fas fa-circle-xmark" style="color:var(--danger)"></i> Verification Problem';
+          statusEl.innerHTML = `<div class="av-status-box err"><i class="fas fa-circle-exclamation"></i> ${info.message}</div>`;
+        }
+        document.getElementById("avResultModal").classList.remove("hidden");
+      }
+
+      function avCloseModal() {
+        document.getElementById("avResultModal").classList.add("hidden");
+      }
+
+      function avScanNextFromModal() {
+        avCloseModal();
+        avStartFastScan();
+      }
+
+      /* Exam-day flow: the page opens on Step 1 (select level). The scanner
+         starts as soon as a course is chosen. */
     </script>
   </body>
 </html>

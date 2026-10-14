@@ -1,81 +1,23 @@
 /* =============================================
    EIPS — Biometrics Layer (js/biometrics.js)
 
-   Two REAL browser capabilities are used here, not simulated:
+   Fingerprint verification only (no facial recognition anywhere in
+   the app — students upload a registration photo instead):
 
-   1. WebAuthn (navigator.credentials) — this is what actually talks to
-      a laptop's Windows Hello / Mac Touch ID sensor, or a phone's
-      fingerprint/Face unlock, from inside the browser. Requires a
+   1. WebAuthn (navigator.credentials) — talks to a laptop's Windows
+      Hello / Mac Touch ID sensor from inside the browser. Requires a
       secure context (HTTPS, or http://localhost while testing).
       IMPORTANT LIMITATION (real, not a bug): a WebAuthn credential is
-      bound to the device/authenticator that created it. There is no
-      browser API that lets an admin's computer "pull" or compare a
-      fingerprint that was enrolled on a student's own laptop/phone.
-      So fingerprint re-verification on exam day must happen on the
-      SAME device the student enrolled with.
+      bound to the device/authenticator that created it, so
+      re-verification must happen on the SAME device it was
+      enrolled on.
 
-   2. face-api.js (loaded from CDN in the HTML) — a real, open-source,
-      in-browser face-recognition library (runs on TensorFlow.js). It
-      produces a 128-number face descriptor from a photo; comparing two
-      descriptors' Euclidean distance is the standard way face
-      recognition systems decide "same person" (distance < ~0.55 is a
-      strong match). This is genuine automated face matching, not a
-      fake timer.
+   2. Exam-scanner bridge (section 3 below) — the ZK9500 scanner
+      attached to the exam PC. This is the primary exam-day path:
+      1:N matching against every enrolled template.
 ============================================= */
 
 "use strict";
-
-const FACE_MODELS_URL =
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights";
-const FACE_MATCH_THRESHOLD = 0.55;
-
-let _faceModelsLoaded = false;
-
-async function loadFaceModels() {
-  if (_faceModelsLoaded) return true;
-  if (typeof faceapi === "undefined") {
-    console.warn("face-api.js did not load (no internet, or CDN blocked).");
-    return false;
-  }
-  try {
-    await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODELS_URL);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODELS_URL);
-    await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODELS_URL);
-    _faceModelsLoaded = true;
-    return true;
-  } catch (e) {
-    console.warn("Failed to load face-api.js models:", e);
-    return false;
-  }
-}
-
-/* Given an <img> or <video> or <canvas> element, returns a 128-length
-   face descriptor array, or null if no face / models unavailable. */
-async function getFaceDescriptor(mediaEl) {
-  const ready = await loadFaceModels();
-  if (!ready) return null;
-  const detection = await faceapi
-    .detectSingleFace(mediaEl, new faceapi.TinyFaceDetectorOptions())
-    .withFaceLandmarks()
-    .withFaceDescriptor();
-  if (!detection) return null;
-  return Array.from(detection.descriptor);
-}
-
-/* Euclidean distance between two descriptors -> lower = more similar */
-function faceDistance(descA, descB) {
-  if (!descA || !descB || descA.length !== descB.length) return Infinity;
-  let sum = 0;
-  for (let i = 0; i < descA.length; i++) {
-    sum += (descA[i] - descB[i]) ** 2;
-  }
-  return Math.sqrt(sum);
-}
-
-function faceMatches(descA, descB) {
-  const d = faceDistance(descA, descB);
-  return { isMatch: d < FACE_MATCH_THRESHOLD, distance: d };
-}
 
 /* ─────────────────────────────────────────
    WebAuthn — real fingerprint / platform biometric
@@ -177,4 +119,134 @@ async function verifyFingerprint(credentialId) {
   };
   const assertion = await navigator.credentials.get({ publicKey });
   return !!assertion;
+}
+
+/* ─────────────────────────────────────────
+   2. Exam-scanner bridge (ZK9500 + ZKFinger SDK)
+
+   On exam PCs a tiny local service (bridge\zkbridge.py) owns the USB
+   fingerprint scanner. The page talks to it over http://127.0.0.1 —
+   this works from the hosted (HTTPS) site too, because browsers treat
+   loopback addresses as trustworthy; the bridge answers CORS and
+   private-network preflights for the hosted origin.
+
+   Scanner-enrolled fingerprints are stored as "zk:<base64 template>"
+   (the ZK template is portable across PCs, unlike a WebAuthn
+   credential which is welded to the device that created it).
+
+   Fallback order used by callers:
+     exam PC with bridge      -> scanner (zk: template)
+     any HTTPS device         -> WebAuthn platform sensor
+     neither                  -> clear error
+────────────────────────────────────────── */
+const SCANNER_BRIDGE_URL = String(
+  window.EIPS_BRIDGE_URL || "http://127.0.0.1:8765"
+).replace(/\/+$/, "");
+const SCANNER_BRIDGE_PROBE_MS = 900;
+const SCANNER_BRIDGE_CALL_MS = 65000; // bridge may wait up to 45s for a finger
+const SCANNER_BRIDGE_DOWN_MSG =
+  "Exam fingerprint scanner bridge not reachable. On this exam PC start it " +
+  "with: python bridge\\zkbridge.py (scanner must be plugged in).";
+
+function isScannerTemplate(value) {
+  return typeof value === "string" && value.indexOf("zk:") === 0;
+}
+
+/* Quick probe: returns bridge info {ok:true,...} or null if absent. */
+async function bridgeHealth() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SCANNER_BRIDGE_PROBE_MS);
+  try {
+    const r = await fetch(SCANNER_BRIDGE_URL + "/health", {
+      signal: ctrl.signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d && d.ok ? d : null;
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function _bridgeCall(path, payload) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SCANNER_BRIDGE_CALL_MS);
+  let r;
+  try {
+    r = await fetch(SCANNER_BRIDGE_URL + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload || {}),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    throw new Error(SCANNER_BRIDGE_DOWN_MSG);
+  } finally {
+    clearTimeout(timer);
+  }
+  let d = null;
+  try {
+    d = await r.json();
+  } catch (e) {
+    d = null;
+  }
+  if (!r.ok || !d || !d.ok) {
+    throw new Error(
+      (d && d.error) || "Scanner bridge error (HTTP " + r.status + ")."
+    );
+  }
+  return d;
+}
+
+/* Capture one fingerprint on the exam scanner -> "zk:<template>". */
+async function enrollFingerprintScanner() {
+  const health = await bridgeHealth();
+  if (!health) throw new Error(SCANNER_BRIDGE_DOWN_MSG);
+  const cap = await _bridgeCall("/capture", {});
+  if (!cap.template) throw new Error("Scanner returned no template.");
+  return "zk:" + cap.template;
+}
+
+/* Match a live finger against a stored "zk:<template>".
+   Throws if the bridge is down or the finger doesn't match;
+   resolves { score, matched } on success. */
+async function verifyFingerprintScanner(storedTemplate) {
+  const health = await bridgeHealth();
+  if (!health) throw new Error(SCANNER_BRIDGE_DOWN_MSG);
+  const res = await _bridgeCall("/match", {
+    template: String(storedTemplate),
+  });
+  if (!res.matched) {
+    throw new Error(
+      "Fingerprint did not match the enrolled record (score " + res.score + ")."
+    );
+  }
+  return res;
+}
+
+/* Exam-day 1:N identification: match ONE live finger against MANY stored
+   "zk:<template>" strings (index order preserved by the bridge).
+   Resolves { bestIndex, score, matched, compared }.
+   Throws with err.noMatch = true when no candidate reaches the threshold. */
+async function matchFingerprintsOnScanner(templates) {
+  const health = await bridgeHealth();
+  if (!health) throw new Error(SCANNER_BRIDGE_DOWN_MSG);
+  if (!Array.isArray(templates) || !templates.length) {
+    throw new Error(
+      "No scanner-enrolled fingerprints are available to match against."
+    );
+  }
+  const res = await _bridgeCall("/match-many", { templates });
+  if (!res.matched) {
+    const err = new Error(
+      "No enrolled student matches this fingerprint (best score " + res.score + ")."
+    );
+    err.noMatch = true;
+    err.score = res.score;
+    throw err;
+  }
+  return res;
 }

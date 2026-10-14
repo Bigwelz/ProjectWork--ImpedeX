@@ -22,8 +22,7 @@
           <li><a href="#rules">Exam Rules</a></li>
         </ul>
         <div class="lp-nav-actions">
-          <a href="admin-login.html" class="lp-btn-outline">Admin Login</a>
-          <a href="register.html" class="lp-btn-primary">Get Started <i class="fas fa-arrow-right"></i></a>
+          <a href="register.html" class="lp-btn-primary" id="navGetStarted">Get Started <i class="fas fa-arrow-right"></i></a>
         </div>
         <button class="lp-hamburger" id="lpHamburger"><i class="fas fa-bars"></i></button>
       </div>
@@ -35,7 +34,7 @@
         <div class="lp-hero-left">
           <span class="lp-hero-badge"><i class="fas fa-circle"></i> SYSTEM ACTIVE & READY</span>
           <h1 class="lp-hero-title">Verify Every Student.<br><span class="lp-hero-accent">Protect Every Examination.</span></h1>
-          <p class="lp-hero-desc">ImpedeX combines advanced facial recognition and fingerprint biometrics to verify student identity, completely prevent impersonation, and seamlessly secure examination hall entry.</p>
+          <p class="lp-hero-desc">ImpedeX pairs a registration photo with fingerprint biometrics to verify student identity, completely prevent impersonation, and seamlessly secure examination hall entry.</p>
           <div class="lp-hero-btns">
             <a href="register.html" class="lp-btn-primary lg">Get Started <i class="fas fa-arrow-right"></i></a>
             <a href="login.html" class="lp-btn-white lg"><i class="fas fa-arrow-right-to-bracket"></i> Student Portal Login</a>
@@ -66,7 +65,7 @@
           <div class="lp-step">
             <div class="lp-step-num">01</div>
             <h4>Register</h4>
-            <p>Capture biometric data (face & fingerprint) upon matriculation.</p>
+            <p>Create your account with a clear photo, then enrol your fingerprint after course registration.</p>
           </div>
           <div class="lp-step">
             <div class="lp-step-num">02</div>
@@ -81,7 +80,7 @@
           <div class="lp-step">
             <div class="lp-step-num">04  </div>
             <h4>Verify Identity</h4>
-            <p>Live biometric scan at the examination hall entrance.</p>
+            <p>Fingerprint scan at the examination hall entrance.</p>
           </div>
           <div class="lp-step">
             <div class="lp-step-num">05</div>
@@ -103,7 +102,7 @@
         <div class="lp-stop-left">
           <div class="lp-stop-icon"><i class="fas fa-ban"></i></div>
           <h2>Stop Examination Impersonation Before It Happens.</h2>
-          <p>Traditional ID cards can be forged or swapped. Biometrics cannot. ImpedeX confirms that the candidate presenting for an examination is the registered student — using multi-modal biometrics and real-time matching, every time, without exception.</p>
+          <p>Traditional ID cards can be forged or swapped. Biometrics cannot. ImpedeX confirms that the candidate presenting for an examination is the registered student — using fingerprint matching at the checkpoint, every time, without exception.</p>
           <ul class="lp-stop-list">
             <li><i class="fas fa-circle-check"></i> Eliminates ghost students from examination halls.</li>
             <li><i class="fas fa-circle-check"></i> Real-time alerts to invigilators upon mismatch.</li>
@@ -119,14 +118,14 @@
 
       <div class="lp-stop-cards">
         <div class="lp-sec-card">
-          <div class="lp-sec-card-icon"><i class="fas fa-face-smile"></i></div>
-          <h3>Facial Recognition</h3>
-          <p>A controlled facial capture is converted into a unique mathematical template. Matching runs against the candidate's enrolled record, accounting for lighting and age to prevent both false rejections and fraudulent admissions.</p>
+          <div class="lp-sec-card-icon"><i class="fas fa-id-card"></i></div>
+          <h3>Registration Photo</h3>
+          <p>A clear photo uploaded when the account is created travels with the student record. At the exam-day checkpoint it is displayed alongside the fingerprint match so the invigilator can confirm, at a glance, that the person in front of them is the candidate being seated.</p>
         </div>
         <div class="lp-sec-card">
           <div class="lp-sec-card-icon"><i class="fas fa-fingerprint"></i></div>
           <h3>Fingerprint Verification</h3>
-          <p>High-resolution fingerprint scanning maps distinct ridge patterns for near-instantaneous identification. Combined with facial matching, it provides a robust second layer that a physical card alone cannot offer.</p>
+          <p>High-resolution fingerprint scanning maps distinct ridge patterns for near-instantaneous identification — one live finger is matched against every enrolled template in the hall, giving a robust layer of identity proof that a physical card alone cannot offer.</p>
         </div>
       </div>
     </section>
@@ -191,5 +190,22 @@
 
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
+    <script>
+      // NAV-ONLY, ADMIN-ONLY: when this browser holds the admin-portal cookie
+      // (set by a successful admin login on :4001), the nav "Get Started"
+      // button becomes "Back to Admin". Students keep the normal button.
+      (function revealAdminNav() {
+        var btn = document.getElementById("navGetStarted");
+        if (!btn) return;
+        fetch("/api/session/portal", { headers: { Accept: "application/json" } })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (!d || !d.adminPortal) return;
+            btn.setAttribute("href", "admin-login.html");
+            btn.innerHTML = 'Back to Admin <i class="fas fa-arrow-right"></i>';
+          })
+          .catch(function () {});
+      })();
+    </script>
   </body>
 </html>

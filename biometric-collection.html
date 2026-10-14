@@ -34,67 +34,22 @@
           </div>
           <div class="vs-line"></div>
           <div class="vs-step active" id="vs2">
-            <i class="fas fa-camera"></i> Face Photo
+            <i class="fas fa-spinner fa-spin"></i> Fingerprint
           </div>
           <div class="vs-line"></div>
           <div class="vs-step" id="vs3">
-            <i class="fas fa-circle"></i> Fingerprint
-          </div>
-          <div class="vs-line"></div>
-          <div class="vs-step" id="vs4">
             <i class="fas fa-circle"></i> Complete
           </div>
         </div>
 
-        <!-- Face Capture Section -->
-        <div class="face-capture-box" id="faceSection">
-          <div class="auth-header">
-            <i class="fas fa-camera"></i>
-            <h2 style="font-size: 2rem">Face Photo Collection</h2>
-            <p>Position your face within the oval frame. The system will capture your photo for identity verification on exam day.</p>
-          </div>
-
-          <div class="camera-frame" id="bioFrame">
-            <video id="bioVideo" autoplay playsinline></video>
-            <div class="camera-overlay">
-              <div class="face-guide" id="faceGuide"></div>
-            </div>
-            <div class="scan-line" id="scanLine"></div>
-            <div class="camera-placeholder" id="bioPlaceholder">
-              <i class="fas fa-camera-rotate"></i>
-              <p>Click "Capture Photo" to start your camera</p>
-            </div>
-            <canvas id="bioCanvas" style="display:none"></canvas>
-          </div>
-
-          <p class="camera-hint">
-            <i class="fas fa-lightbulb"></i> Ensure your face is well-lit and centred in the oval frame.
-          </p>
-
-          <div class="camera-btns">
-            <button class="btn btn-primary" id="capturePhotoBtn" onclick="capturePhoto()">
-              <i class="fas fa-camera"></i> Capture Photo
-            </button>
-            <button class="btn btn-outline hidden" id="retakePhotoBtn" onclick="retakePhoto()">
-              <i class="fas fa-rotate"></i> Retake
-            </button>
-          </div>
-
-          <div class="verify-result hidden" id="faceResult">
-            <div class="vr-icon success">
-              <i class="fas fa-shield-check"></i>
-            </div>
-            <h3>Face Photo Captured</h3>
-            <p>Your photo has been captured successfully. You can retake if needed.</p>
-          </div>
-        </div>
-
-        <!-- Fingerprint Section (shown after face) -->
-        <div class="face-capture-box hidden" id="fingerprintSection" style="margin-top: 2.4rem">
+        <!-- Fingerprint Section (shown unless already enrolled) -->
+        <div class="face-capture-box" id="fingerprintSection" style="margin-top: 2.4rem">
           <div class="auth-header">
             <i class="fas fa-fingerprint"></i>
             <h2 style="font-size: 2rem">Fingerprint Collection</h2>
-            <p>Use your device's fingerprint sensor (Windows Hello, Touch ID, or Android fingerprint) to enroll your fingerprint. This will be used to verify your identity on exam day.</p>
+            <p>Enrol your fingerprint for exam-day verification. If the exam scanner (ZK9500) is connected to this
+              computer it is used automatically; otherwise your device's built-in sensor (Windows Hello, Touch ID, or
+              Android fingerprint) works too.</p>
           </div>
           <div class="camera-btns">
             <button class="btn btn-primary" id="enrollFpBtn" onclick="enrollFingerprintStep()">
@@ -110,11 +65,11 @@
             <div class="vr-icon success">
               <i class="fas fa-shield-check"></i>
             </div>
-            <h3>Biometric Collection Complete!</h3>
+            <h3>Fingerprint Enrolled!</h3>
             <p style="max-width: 46rem">
-              Your face photo and fingerprint have been enrolled successfully.
-              On exam day, the admin will verify your identity using these biometrics
-              before allocating your seat.
+              Your fingerprint has been enrolled successfully. On exam day, place
+              your finger on the scanner at the checkpoint — the system matches it,
+              shows your record with your photo, and reveals your allocated seat.
             </p>
           </div>
           <div class="camera-btns" style="margin-top: 2rem">
@@ -127,7 +82,6 @@
     </div>
 
     <script src="js/api.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="js/biometrics.js"></script>
     <script src="js/app.js"></script>
   </body>

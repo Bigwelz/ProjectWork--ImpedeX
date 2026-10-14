@@ -18,7 +18,7 @@
     </a>
     <div class="topnav-right">
       <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
-      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)"><i class="fas fa-right-from-bracket"></i> Logout</button>
+      <button class="btn btn-outline btn-nav btn-sm" onclick="setAdminSession(false)">Logout <i class="fas fa-right-from-bracket"></i></button>
     </div>
     <div class="hamburger" id="hamburger" onclick="toggleAdminSidebar()"><i class="fas fa-bars"></i></div>
   </nav>
@@ -47,7 +47,7 @@
       </nav>
       <div class="sidebar-bottom">
         <a href="admin-login.html" class="admin-nav-item" onclick="setAdminSession(false)">
-          <i class="fas fa-right-from-bracket"></i> Logout
+          Logout <i class="fas fa-right-from-bracket"></i>
         </a>
       </div>
     </aside>
@@ -60,7 +60,7 @@
           <h1>Course Catalog</h1>
           <p style="color: var(--text-muted); font-size: 1.3rem;">Manage courses and exam schedules</p>
         </div>
-        <button class="btn btn-primary" onclick="document.getElementById('addCourseModal').classList.remove('hidden')">
+        <button class="btn btn-primary" onclick="openAddCourseModal()">
           <i class="fas fa-plus"></i> Add Course
         </button>
       </div>
@@ -68,7 +68,7 @@
       <!-- Stats -->
       <div class="stat-grid" id="courseStats">
         <div class="stat-card blue">
-          <div class="stat-info"><span>Total Courses</span><strong id="csTotal">0</strong></div>
+          <div class="stat-info"><span id="csTotalLabel">Total Courses</span><strong id="csTotal">0</strong></div>
           <div class="stat-icon"><i class="fas fa-book-open"></i></div>
         </div>
         <div class="stat-card green">
@@ -85,30 +85,6 @@
         </div>
       </div>
 
-      <!-- Filters -->
-      <div class="dash-card filter-bar">
-        <div class="filter-group">
-          <select class="filter-select" id="courseLevelFilter" onchange="filterCourses(document.querySelector('.search-input').value)">
-            <option value="">All Levels</option>
-            <option value="200">200 Level</option>
-            <option value="300">300 Level</option>
-            <option value="400">400 Level</option>
-            <option value="500">500 Level</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <input type="text" placeholder="Search by code or title..." class="search-input" oninput="filterCourses(this.value)" />
-          <i class="fas fa-search filter-icon"></i>
-        </div>
-        <div class="filter-group">
-          <select class="filter-select" id="courseTypeFilter" onchange="filterCourses(document.querySelector('.search-input').value)">
-            <option value="">All Types</option>
-            <option value="compulsory">Compulsory</option>
-            <option value="elective">Elective</option>
-          </select>
-        </div>
-      </div>
-
       <!-- Exam Schedule Section -->
       <div class="dash-card mt-1">
         <div class="dash-card-header">
@@ -118,6 +94,16 @@
           Set the date, time, and hall for an exam. This is what students see on their examinations page.
         </p>
         <div class="filter-bar" style="margin: 0">
+          <div class="filter-group">
+            <select id="schLevelSelect" class="search-input" onchange="filterScheduleCourses()">
+              <option value="">-- Select Level --</option>
+              <option value="100">100 Level</option>
+              <option value="200">200 Level</option>
+              <option value="300">300 Level</option>
+              <option value="400">400 Level</option>
+              <option value="500">500 Level</option>
+            </select>
+          </div>
           <div class="filter-group">
             <select id="schCourseSelect" class="search-input" style="min-width:20rem">
               <option value="">-- Select Course --</option>
@@ -134,73 +120,122 @@
       <!-- Course Table -->
       <div class="dash-card mt-1">
         <div class="dash-card-header">
-          <h3><i class="fas fa-book-open"></i> All Courses <span class="rec-count" id="courseRecCount">(0 records)</span></h3>
+          <h3><i class="fas fa-book-open"></i> Edit Courses <span class="rec-count" id="courseRecCount">(0 records)</span></h3>
         </div>
-        <div class="table-wrap">
-          <table class="admin-table" id="courseTable">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Title</th>
-                <th>Level</th>
-                <th>Units</th>
-                <th>Type</th>
-                <th>Scheduled</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="courseTbody"></tbody>
-          </table>
+
+        <!-- Level Selection -->
+        <div id="levelSelectView">
+          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.2rem">Select a level to view and manage its courses:</p>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem">
+            <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectCourseLevel(100)">100 Level</button>
+            <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectCourseLevel(200)">200 Level</button>
+            <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectCourseLevel(300)">300 Level</button>
+            <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectCourseLevel(400)">400 Level</button>
+            <button class="btn btn-outline" style="padding: 1.8rem; font-size: 1.6rem; font-weight: 700" onclick="selectCourseLevel(500)">500 Level</button>
+          </div>
+        </div>
+
+        <!-- Course List (shown after level selection) -->
+        <div id="courseListView" class="hidden">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem">
+            <h4 id="courseListLevelTitle" style="font-size:1.5rem; color:var(--primary)"></h4>
+            <div style="display:flex; gap:0.6rem">
+              <button class="btn btn-primary btn-sm" onclick="openAddCourseModalForLevel()"><i class="fas fa-plus"></i> Add Course</button>
+              <button class="btn btn-outline btn-sm" onclick="backToLevelSelect()"><i class="fas fa-arrow-left"></i> Back to Levels</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="admin-table" id="courseTable">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Title</th>
+                  <th>Level</th>
+                  <th>Units</th>
+                  <th>Type</th>
+                  <th>Scheduled</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="courseTbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </main>
   </div>
 
   <!-- FOOTER -->
-  <footer class="site-footer" style="margin-top: 2rem">
-    <div class="footer-left">
-      <h3 class="footer-title">IFT</h3>
-      <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
-    </div>
-    <div class="footer-links">
-      <a href="#">Help Center</a>
-      <a href="#">Terms of Service</a>
-      <a href="#">Contact Support</a>
-    </div>
-    <div class="footer-right">
-      &copy; 2026 ImpedeX Security. All rights reserved.
+  <footer class="lp-footer">
+    <div class="lp-footer-inner">
+      <div class="lp-footer-left">
+        <h3>IFT</h3>
+        <p>A biometric-based solution that helps protect examination integrity by preventing impersonation for Federal University of Technology, Owerri.</p>
+      </div>
+      <div class="lp-footer-links">
+        <a href="#">Help Center</a>
+        <a href="#">Terms of Service</a>
+        <div class="lp-footer-dropdown">
+          <button type="button" class="lp-footer-dropdown-trigger">Contact Support <i class="fas fa-chevron-down"></i></button>
+          <div class="lp-footer-dropdown-menu">
+            <a href="tel:08136489243">08136489243</a>
+            <a href="tel:08062142392">08062142392</a>
+          </div>
+        </div>
+      </div>
+      <div class="lp-footer-right">
+        &copy; 2026 ImpedeX Security. All rights reserved.
+      </div>
     </div>
   </footer>
 
     <!-- Add Course Modal -->
     <div class="modal-overlay hidden" id="addCourseModal">
       <div class="modal-box wide-modal">
-        <div class="modal-close" onclick="document.getElementById('addCourseModal').classList.add('hidden')"><i class="fas fa-times"></i></div>
-        <h3><i class="fas fa-plus-circle"></i> Add New Course</h3>
-        <div class="form-grid mt-1">
-          <div class="form-group">
-            <label>Course Code</label>
-            <input type="text" id="addCourseCode" placeholder="e.g. CSC501" style="text-transform:uppercase" />
-          </div>
-          <div class="form-group">
-            <label>Course Title</label>
-            <input type="text" id="addCourseTitle" placeholder="e.g. Software Engineering" />
-          </div>
-          <div class="form-group">
-            <label>Units</label>
-            <input type="number" id="addCourseUnit" min="1" max="6" value="3" />
-          </div>
-          <div class="form-group">
-            <label>Type</label>
-            <select id="addCourseType">
-              <option value="compulsory">Compulsory</option>
-              <option value="elective">Elective</option>
-            </select>
+        <div class="modal-close" onclick="closeAddCourseModal()"><i class="fas fa-times"></i></div>
+
+        <!-- Step 1: Select Level -->
+        <div id="addCourseStep1">
+          <h3><i class="fas fa-plus-circle"></i> Add New Course</h3>
+          <p style="color: var(--text-muted); font-size: 1.3rem; margin: 0.6rem 0 1.4rem">Select the level for this course:</p>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem">
+            <button class="btn btn-outline" style="padding: 1.6rem; font-size: 1.5rem; font-weight: 700" onclick="selectAddCourseLevel(100)">100L</button>
+            <button class="btn btn-outline" style="padding: 1.6rem; font-size: 1.5rem; font-weight: 700" onclick="selectAddCourseLevel(200)">200L</button>
+            <button class="btn btn-outline" style="padding: 1.6rem; font-size: 1.5rem; font-weight: 700" onclick="selectAddCourseLevel(300)">300L</button>
+            <button class="btn btn-outline" style="padding: 1.6rem; font-size: 1.5rem; font-weight: 700" onclick="selectAddCourseLevel(400)">400L</button>
+            <button class="btn btn-outline" style="padding: 1.6rem; font-size: 1.5rem; font-weight: 700" onclick="selectAddCourseLevel(500)">500L</button>
           </div>
         </div>
-        <div class="form-btn-row mt-1">
-          <button class="btn btn-outline" onclick="document.getElementById('addCourseModal').classList.add('hidden')">Cancel</button>
-          <button class="btn btn-primary" onclick="adminAddCourse()"><i class="fas fa-save"></i> Save Course</button>
+
+        <!-- Step 2: Course Form -->
+        <div id="addCourseStep2" class="hidden">
+          <h3><i class="fas fa-plus-circle"></i> Add New Course — <span id="addCourseLevelLabel" style="color:var(--primary)"></span></h3>
+          <div class="form-grid mt-1">
+            <div class="form-group">
+              <label>Course Code</label>
+              <input type="text" id="addCourseCode" placeholder="e.g. CSC501" style="text-transform:uppercase" />
+            </div>
+            <div class="form-group">
+              <label>Course Title</label>
+              <input type="text" id="addCourseTitle" placeholder="e.g. Software Engineering" />
+            </div>
+            <div class="form-group">
+              <label>Units</label>
+              <input type="number" id="addCourseUnit" min="1" max="6" value="3" />
+            </div>
+            <div class="form-group">
+              <label>Type</label>
+              <select id="addCourseType">
+                <option value="compulsory">Compulsory</option>
+                <option value="elective">Elective</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-btn-row mt-1">
+            <button class="btn btn-outline" onclick="backToAddCourseLevel()"><i class="fas fa-arrow-left"></i> Back</button>
+            <button class="btn btn-outline" onclick="closeAddCourseModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="adminAddCourse()"><i class="fas fa-save"></i> Save Course</button>
+          </div>
         </div>
       </div>
     </div>
@@ -231,6 +266,21 @@
             </select>
           </div>
         </div>
+        <h4 style="margin-top:1.6rem; margin-bottom:0.8rem; font-size:1.4rem"><i class="fas fa-calendar"></i> Exam Schedule</h4>
+        <div class="form-grid mt-1">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="editSchDate" />
+          </div>
+          <div class="form-group">
+            <label>Time</label>
+            <input type="text" id="editSchTime" placeholder="e.g. 10:00 AM – 12:00 PM" />
+          </div>
+          <div class="form-group">
+            <label>Hall</label>
+            <input type="text" id="editSchHall" placeholder="e.g. Hall A" />
+          </div>
+        </div>
         <div class="form-btn-row mt-1">
           <button class="btn btn-outline" onclick="document.getElementById('editCourseModal').classList.add('hidden')">Cancel</button>
           <button class="btn btn-primary" onclick="adminUpdateCourse()"><i class="fas fa-save"></i> Update Course</button>
@@ -249,6 +299,51 @@
     </script>
     <script>
       let allCoursesData = [];
+      let addCourseLevel = null;
+      let selectedCourseLevel = null;
+
+      function selectCourseLevel(level) {
+        selectedCourseLevel = level;
+        document.getElementById("courseListLevelTitle").textContent = `${level} Level Courses`;
+        document.getElementById("levelSelectView").classList.add("hidden");
+        document.getElementById("courseListView").classList.remove("hidden");
+        filterCourses("");
+      }
+
+      function backToLevelSelect() {
+        selectedCourseLevel = null;
+        document.getElementById("courseListView").classList.add("hidden");
+        document.getElementById("levelSelectView").classList.remove("hidden");
+      }
+
+      function openAddCourseModalForLevel() {
+        if (!selectedCourseLevel) return;
+        selectAddCourseLevel(selectedCourseLevel);
+      }
+
+      function openAddCourseModal() {
+        addCourseLevel = null;
+        document.getElementById("addCourseStep1").classList.remove("hidden");
+        document.getElementById("addCourseStep2").classList.add("hidden");
+        document.getElementById("addCourseModal").classList.remove("hidden");
+      }
+
+      function closeAddCourseModal() {
+        document.getElementById("addCourseModal").classList.add("hidden");
+      }
+
+      function selectAddCourseLevel(level) {
+        addCourseLevel = level;
+        document.getElementById("addCourseLevelLabel").textContent = `${level} Level`;
+        document.getElementById("addCourseStep1").classList.add("hidden");
+        document.getElementById("addCourseStep2").classList.remove("hidden");
+      }
+
+      function backToAddCourseLevel() {
+        addCourseLevel = null;
+        document.getElementById("addCourseStep2").classList.add("hidden");
+        document.getElementById("addCourseStep1").classList.remove("hidden");
+      }
 
       async function renderCoursesTable() {
         const tbody = document.getElementById("courseTbody");
@@ -259,15 +354,23 @@
           return;
         }
 
-        const total = allCoursesData.length;
-        const comp = allCoursesData.filter((c) => c.type === "compulsory").length;
+        const displayCourses = selectedCourseLevel
+          ? allCoursesData.filter((c) => String(c.level) === String(selectedCourseLevel))
+          : allCoursesData;
+
+        const total = displayCourses.length;
+        const comp = displayCourses.filter((c) => c.type === "compulsory").length;
         const elec = total - comp;
-        const units = allCoursesData.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+        const units = displayCourses.reduce((s, c) => s + (Number(c.unit) || 0), 0);
         document.getElementById("csTotal").textContent = total;
+        document.getElementById("csTotalLabel").textContent = selectedCourseLevel ? `Total Courses (${selectedCourseLevel}L)` : "Total Courses";
         document.getElementById("csComp").textContent = comp;
         document.getElementById("csElec").textContent = elec;
         document.getElementById("csUnits").textContent = units;
         document.getElementById("courseRecCount").textContent = `(${total} record${total === 1 ? "" : "s"})`;
+
+        document.getElementById("levelSelectView").classList.remove("hidden");
+        document.getElementById("courseListView").classList.add("hidden");
 
         renderCourseRows(allCoursesData);
         renderScheduleSelect();
@@ -296,30 +399,33 @@
             <td>${typeBadge}</td>
             <td>${sched}</td>
             <td class="action-cell">
-              <button class="act-btn edit" onclick="openEditCourse('${c.code}','${(c.title||"").replace(/'/g,"\\'")}',${c.unit},'${c.type}')"><i class="fas fa-pen"></i></button>
+              <button class="act-btn edit" onclick="openEditCourse('${c.code}','${(c.title||"").replace(/'/g,"\\'")}',${c.unit},'${c.type}',${c.schedule ? JSON.stringify(c.schedule).replace(/"/g,"&quot;") : 'null'})"><i class="fas fa-pen"></i></button>
               <button class="act-btn delete" onclick="adminDeleteCourse('${c.code}')"><i class="fas fa-trash"></i></button>
             </td>
           </tr>`;
         }).join("");
       }
 
-      function filterCourses(query) {
-        const typeFilter = document.getElementById("courseTypeFilter").value;
-        const levelFilter = document.getElementById("courseLevelFilter").value;
-        const q = query.toLowerCase();
+      function filterCourses() {
         const filtered = allCoursesData.filter((c) => {
-          const matchQuery = !q || c.code.toLowerCase().includes(q) || c.title.toLowerCase().includes(q);
-          const matchType = !typeFilter || c.type === typeFilter;
-          const matchLevel = !levelFilter || String(c.level) === levelFilter;
-          return matchQuery && matchType && matchLevel;
+          const matchLevel = !selectedCourseLevel || String(c.level) === String(selectedCourseLevel);
+          return matchLevel;
         });
         renderCourseRows(filtered);
       }
 
       function renderScheduleSelect() {
         const sel = document.getElementById("schCourseSelect");
+        const level = document.getElementById("schLevelSelect").value;
+        const filtered = level
+          ? allCoursesData.filter((c) => String(c.level) === String(level))
+          : allCoursesData;
         sel.innerHTML = `<option value="">-- Select Course --</option>` +
-          allCoursesData.map((c) => `<option value="${c.code}">${c.code} — ${c.title}</option>`).join("");
+          filtered.map((c) => `<option value="${c.code}">${c.code} — ${c.title}</option>`).join("");
+      }
+
+      function filterScheduleCourses() {
+        renderScheduleSelect();
       }
 
       async function saveExamSchedule() {
@@ -365,11 +471,14 @@
         }
       }
 
-      function openEditCourse(code, title, unit, type) {
+      function openEditCourse(code, title, unit, type, schedule) {
         document.getElementById("editCourseCode").value = code;
         document.getElementById("editCourseTitle").value = title;
         document.getElementById("editCourseUnit").value = unit;
         document.getElementById("editCourseType").value = type;
+        document.getElementById("editSchDate").value = schedule ? schedule.date : "";
+        document.getElementById("editSchTime").value = schedule ? schedule.time : "";
+        document.getElementById("editSchHall").value = schedule ? schedule.hall : "";
         document.getElementById("editCourseModal").classList.remove("hidden");
       }
 
@@ -378,13 +487,17 @@
         const title = document.getElementById("addCourseTitle").value.trim();
         const unit = Number(document.getElementById("addCourseUnit").value);
         const type = document.getElementById("addCourseType").value;
+        if (!addCourseLevel) {
+          showToast("Please select a level first.", "danger");
+          return;
+        }
         if (!code || !title || !unit) {
           showToast("All fields are required.", "danger");
           return;
         }
         try {
-          await apiAdminAddCourse({ code, title, unit, type });
-          document.getElementById("addCourseModal").classList.add("hidden");
+          await apiAdminAddCourse({ code, title, unit, type, level: addCourseLevel });
+          closeAddCourseModal();
           document.getElementById("addCourseCode").value = "";
           document.getElementById("addCourseTitle").value = "";
           document.getElementById("addCourseUnit").value = "3";
@@ -400,12 +513,18 @@
         const title = document.getElementById("editCourseTitle").value.trim();
         const unit = Number(document.getElementById("editCourseUnit").value);
         const type = document.getElementById("editCourseType").value;
+        const schDate = document.getElementById("editSchDate").value;
+        const schTime = document.getElementById("editSchTime").value.trim();
+        const schHall = document.getElementById("editSchHall").value.trim();
         if (!title || !unit) {
           showToast("Title and units are required.", "danger");
           return;
         }
         try {
           await apiAdminUpdateCourse(code, { title, unit, type });
+          if (schDate && schTime && schHall) {
+            await apiAdminSchedule({ courseCode: code, date: new Date(schDate).toDateString(), time: schTime, hall: schHall });
+          }
           document.getElementById("editCourseModal").classList.add("hidden");
           await renderCoursesTable();
           showToast(`Course ${code} updated.`, "success");

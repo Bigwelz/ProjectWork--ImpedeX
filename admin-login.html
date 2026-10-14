@@ -7,7 +7,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
-  <body class="auth-page admin-auth-page">
+  <body class="auth-page admin-auth-page auth-page-with-nav">
+
+  <!-- TOP NAVBAR -->
+  <nav class="topnav">
+    <a href="admin-login.html" class="topnav-logo">
+      <svg class="logo-mark" viewBox="0 0 48 48" width="28" height="28" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#e2e8f0"></circle><circle cx="24" cy="19" r="6" fill="#334155"></circle><path d="M11 37c1.8-7.2 6.8-11 13-11s11.2 3.8 13 11" fill="none" stroke="#334155" stroke-width="2.6" stroke-linecap="round"></path></svg>
+      <span class="topnav-brand">Impede<span class="burnt-orange">X</span> Admin</span>
+    </a>
+    <div class="topnav-right">
+      <a href="index.html" class="topnav-back" title="Back to home"><i class="fas fa-arrow-left"></i><span class="back-text">Back</span></a>
+    </div>
+  </nav>
+
     <div class="auth-wrapper">
       <div class="auth-card admin-login-card">
         <div class="auth-header">
@@ -52,5 +64,17 @@
 
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
+    <script>
+      // "Back to Admin" from the landing page lands here — if the admin
+      // session is still alive, continue straight to the dashboard.
+      // The token is verified with the server first: a stale session (e.g.
+      // the server restarted and issued a new secret) falls back to the
+      // login form instead of a dead dashboard.
+      if (isLoggedIn("admin")) {
+        apiAdminStats()
+          .then(function () { window.location.replace("admin-dashboard.html"); })
+          .catch(function (err) { if (err && err.status === 401) clearSession(); });
+      }
+    </script>
   </body>
 </html>

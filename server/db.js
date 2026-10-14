@@ -8,9 +8,39 @@
 
 const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
+const crypto = require("node:crypto");
 
 const DB_PATH = path.join(__dirname, "eips.db");
 const db = new DatabaseSync(DB_PATH);
+
+/* Must be set BEFORE any schema/lock work: both servers (student :4000 and
+   admin :4001) open this file, so a second process waits instead of failing. */
+db.exec("PRAGMA busy_timeout = 5000;");
+
+const ENCRYPTION_KEY =process.env.EIPS_ENCRYPTION_KEY || crypto.createHash("sha256").update("ImpedeX-Biometric-Key-2026").digest("hex").slice(0, 32);
+
+function encryptData(plaintext) {
+  if (!plaintext) return null;
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(ENCRYPTION_KEY, "utf8"), iv);
+  let encrypted = cipher.update(String(plaintext), "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return iv.toString("hex") + ":" + encrypted;
+}
+
+function decryptData(ciphertext) {
+  if (!ciphertext) return null;
+  try {
+    const [ivHex, encryptedHex] = ciphertext.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(ENCRYPTION_KEY, "utf8"), iv);
+    let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch {
+    return null;
+  }
+}
 
 /* ─────────────────────────────────────────
    SCHEMA
@@ -31,9 +61,8 @@ db.exec(`
     session         TEXT DEFAULT '',
     password_salt   TEXT NOT NULL,
     password_hash   TEXT NOT NULL,
-    face_descriptor TEXT,               -- JSON array (128 floats) or NULL
     photo           TEXT,               -- data URL or NULL
-    fingerprint_credential_id TEXT,     -- WebAuthn credential id or NULL
+    fingerprint_credential_id TEXT,     -- "zk:" scanner template or WebAuthn credential id, or NULL
     created_at      INTEGER NOT NULL,
     registered_at   INTEGER
   );
@@ -42,7 +71,8 @@ db.exec(`
     code   TEXT PRIMARY KEY,
     title  TEXT NOT NULL,
     unit   INTEGER NOT NULL,
-    type   TEXT NOT NULL CHECK (type IN ('compulsory','elective'))
+    type   TEXT NOT NULL CHECK (type IN ('compulsory','elective')),
+    level  INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS course_registrations (
@@ -144,6 +174,17 @@ for (const [col, typedef] of adminMigrations) {
   }
 }
 
+const courseCols = db.prepare("PRAGMA table_info(course_catalog)").all().map((c) => c.name);
+if (!courseCols.includes("level")) {
+  db.exec("ALTER TABLE course_catalog ADD COLUMN level INTEGER");
+}
+
+/* ── Migrations: facial recognition removed — drop the column ── */
+const studentCols = db.prepare("PRAGMA table_info(students)").all().map((c) => c.name);
+if (studentCols.includes("face_descriptor")) {
+  db.exec("ALTER TABLE students DROP COLUMN face_descriptor");
+}
+
 /* ─────────────────────────────────────────
    SEED — course catalogue + default admin
 ───────────────────────────────────────── */
@@ -197,7 +238,6 @@ function seedAdmin() {
 /* ─────────────────────────────────────────
    PASSWORD HASHING (server-side, PBKDF2-SHA256)
 ───────────────────────────────────────── */
-const crypto = require("node:crypto");
 
 function hashPasswordSync(password, saltB64) {
   return crypto
@@ -229,8 +269,8 @@ seedAdmin();
 function createStudent(data) {
   db.prepare(
     `INSERT INTO students (matric, first_name, last_name, email, phone, department, faculty, level, session,
-     password_salt, password_hash, face_descriptor, photo, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     password_salt, password_hash, photo, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     data.matric,
     data.firstName,
@@ -243,7 +283,6 @@ function createStudent(data) {
     data.session || "",
     data.passwordSalt,
     data.passwordHash,
-    data.faceDescriptor ? JSON.stringify(data.faceDescriptor) : null,
     data.photo || null,
     data.createdAt || Date.now()
   );
@@ -269,13 +308,17 @@ function studentExists(matric) {
 
 function updateStudent(matric, patch) {
   const allowed = ["first_name","last_name","email","phone","department","faculty","level","session",
-    "password_salt","password_hash","face_descriptor","photo","fingerprint_credential_id","registered_at"];
+    "password_salt","password_hash","photo","fingerprint_credential_id","registered_at"];
   const sets = [];
   const vals = [];
   for (const key of allowed) {
     if (patch[key] !== undefined) {
       sets.push(`${key} = ?`);
-      vals.push(patch[key]);
+      if (key === "fingerprint_credential_id") {
+        vals.push(patch[key] ? encryptData(patch[key]) : null);
+      } else {
+        vals.push(patch[key]);
+      }
     }
   }
   if (!sets.length) return getStudent(matric);
@@ -301,9 +344,8 @@ function rowToStudent(r) {
     session: r.session,
     passwordSalt: r.password_salt,
     passwordHash: r.password_hash,
-    faceDescriptor: r.face_descriptor ? JSON.parse(r.face_descriptor) : null,
     photo: r.photo,
-    fingerprintCredentialId: r.fingerprint_credential_id || null,
+    fingerprintCredentialId: r.fingerprint_credential_id ? decryptData(r.fingerprint_credential_id) : null,
     createdAt: r.created_at,
     registeredAt: r.registered_at,
   };
@@ -320,10 +362,10 @@ function getCourse(code) {
   return db.prepare("SELECT * FROM course_catalog WHERE code = ?").get(code);
 }
 
-function insertCourse({ code, title, unit, type }) {
+function insertCourse({ code, title, unit, type, level }) {
   db.prepare(
-    "INSERT INTO course_catalog (code, title, unit, type) VALUES (?, ?, ?, ?)"
-  ).run(code, title, unit, type);
+    "INSERT INTO course_catalog (code, title, unit, type, level) VALUES (?, ?, ?, ?, ?)"
+  ).run(code, title, unit, type, level || null);
   return getCourse(code);
 }
 
@@ -429,16 +471,15 @@ function allSeats() {
 
 const SEATS_PER_ROW = 10;
 
-/* Check that both face and fingerprint checks have passed in the
-   verification log for this student (within the current session). */
-function hasRecentBiometricPass(matric) {
-  const facePass = db.prepare(
-    "SELECT 1 FROM verification_log WHERE matric = ? AND result = 'pass' AND details LIKE '%Face%' ORDER BY time DESC LIMIT 1"
+/* Exam-day gate for seat allocation: the LATEST fingerprint check for this
+   student must be a pass. The registration photo is shown at the checkpoint
+   for visual confirmation, but identity is proven with the fingerprint
+   scanner. */
+function hasRecentFingerprintPass(matric) {
+  const latest = db.prepare(
+    "SELECT result FROM verification_log WHERE matric = ? AND details LIKE '%Fingerprint%' ORDER BY time DESC LIMIT 1"
   ).get(matric);
-  const fpPass = db.prepare(
-    "SELECT 1 FROM verification_log WHERE matric = ? AND result = 'pass' AND details LIKE '%Fingerprint%' ORDER BY time DESC LIMIT 1"
-  ).get(matric);
-  return Boolean(facePass && fpPass);
+  return Boolean(latest && latest.result === "pass");
 }
 
 /* Allocate a random available seat for a course+hall. The student cannot
@@ -456,14 +497,25 @@ function allocateSeat(matric, courseCode) {
     .all(courseCode, hall)
     .map((r) => r.seat_number);
 
-  const totalSeats = 60;
-  const available = [];
-  for (let i = 1; i <= totalSeats; i++) {
-    if (!occupied.includes(i)) available.push(i);
-  }
-  if (!available.length) throw new Error("No seats available in this hall.");
+  const BLOCK_SIZE = 50;
+  const TOTAL_SEATS = 400;
+  const numBlocks = TOTAL_SEATS / BLOCK_SIZE;
 
-  const seatNumber = available[Math.floor(Math.random() * available.length)];
+  let seatNumber = null;
+  for (let block = 0; block < numBlocks; block++) {
+    const blockStart = block * BLOCK_SIZE + 1;
+    const blockEnd = blockStart + BLOCK_SIZE - 1;
+    const availableInBlock = [];
+    for (let i = blockStart; i <= blockEnd; i++) {
+      if (!occupied.includes(i)) availableInBlock.push(i);
+    }
+    if (availableInBlock.length) {
+      seatNumber = availableInBlock[Math.floor(Math.random() * availableInBlock.length)];
+      break;
+    }
+  }
+
+  if (!seatNumber) throw new Error("No seats available in this hall.");
   const rowNumber = Math.floor((seatNumber - 1) / SEATS_PER_ROW) + 1;
 
   db.prepare(
@@ -690,7 +742,7 @@ module.exports = {
   deleteExamSchedule,
   getSeat,
   allSeats,
-  hasRecentBiometricPass,
+  hasRecentFingerprintPass,
   allocateSeat,
   logVerification,
   getVerificationLog,
