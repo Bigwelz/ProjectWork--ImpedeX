@@ -34,28 +34,28 @@ function adminToken(email) {
   return jwt.sign({ role: "admin", email }, JWT_SECRET, { expiresIn: ADMIN_TOKEN_TTL });
 }
 
-function authStudent(req, res, next) {
+async function authStudent(req, res, next) {
   const tok = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!tok) return res.status(401).json({ error: "Not authenticated." });
   try {
     const payload = jwt.verify(tok, JWT_SECRET);
     if (payload.role !== "student") throw new Error("wrong role");
     req.matric = payload.matric;
-    if (!db.studentExists(payload.matric)) return res.status(401).json({ error: "Account no longer exists." });
+    if (!await db.studentExists(payload.matric)) return res.status(401).json({ error: "Account no longer exists." });
     next();
   } catch {
     return res.status(401).json({ error: "Session expired. Please log in again." });
   }
 }
 
-function authAdmin(req, res, next) {
+async function authAdmin(req, res, next) {
   const tok = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!tok) return res.status(401).json({ error: "Not authenticated." });
   try {
     const payload = jwt.verify(tok, JWT_SECRET);
     if (payload.role !== "admin") throw new Error("wrong role");
     req.email = payload.email;
-    if (!db.getAdmin(payload.email)) return res.status(401).json({ error: "Admin account no longer exists." });
+    if (!await db.getAdmin(payload.email)) return res.status(401).json({ error: "Admin account no longer exists." });
     next();
   } catch {
     return res.status(401).json({ error: "Session expired. Please log in again." });
@@ -209,15 +209,15 @@ function mountApi(app, { student = false, admin = false } = {}) {
     res.json({ adminPortal: hasPortalCookie(req) });
   });
 
-  app.get("/api/courses", (req, res) => {
-    const rows = db.allCourses().map((c) => ({
+  app.get("/api/courses", wrap(async (req, res) => {
+    const rows = await db.allCourses();
+    res.json(rows.map((c) => ({
       code: c.code,
       title: c.title,
       unit: c.unit,
       type: c.type.charAt(0).toUpperCase() + c.type.slice(1),
-    }));
-    res.json(rows);
-  });
+    })));
+  }));
 
   /* ───────────────────────────────────────
      STUDENT SERVER ONLY
@@ -234,7 +234,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
         if (!/^\d{11}$/.test(matric)) {
           return res.status(400).json({ error: "Matric number must be exactly 11 digits." });
         }
-        if (db.studentExists(matric)) {
+        if (await db.studentExists(matric)) {
           return res.status(409).json({ error: "An account already exists for this matric number." });
         }
         if (!b.firstName || !b.lastName || !b.email) {
@@ -253,7 +253,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const salt = db.randomSaltB64();
         const hash = db.hashPasswordSync(password, salt);
 
-        db.createStudent({
+        await db.createStudent({
           matric,
           firstName: String(b.firstName).trim(),
           lastName: String(b.lastName).trim(),
@@ -269,7 +269,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
           createdAt: Date.now(),
         });
 
-        const stu = db.publicStudent(db.getStudent(matric));
+        const stu = await db.publicStudent(await db.getStudent(matric));
         res.status(201).json({ token: studentToken(matric), student: stu });
       })
     );
@@ -282,12 +282,12 @@ function mountApi(app, { student = false, admin = false } = {}) {
         if (!/^\d{11}$/.test(matric)) {
           return res.status(400).json({ error: "Matric number must be exactly 11 digits." });
         }
-        const rec = db.getStudentRaw(matric);
+        const rec = await db.getStudentRaw(matric);
         if (!rec) return res.status(404).json({ error: "No account found for that matric number. Please register." });
         if (!db.verifyPasswordSync(password, rec.password_salt, rec.password_hash)) {
           return res.status(401).json({ error: "Incorrect password." });
         }
-        res.json({ token: studentToken(matric), student: db.publicStudent(db.getStudent(matric)) });
+        res.json({ token: studentToken(matric), student: await db.publicStudent(await db.getStudent(matric)) });
       })
     );
 
@@ -298,13 +298,13 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const matric = String(req.body.matric || "").trim();
         const email = String(req.body.email || "").trim().toLowerCase();
         if (!/^\d{11}$/.test(matric)) return res.status(400).json({ error: "Matric number must be exactly 11 digits." });
-        const rec = db.getStudentRaw(matric);
+        const rec = await db.getStudentRaw(matric);
         if (!rec) return res.status(404).json({ error: "No account found for that matric number." });
         if (!rec.email || rec.email.trim().toLowerCase() !== email) {
           return res.status(400).json({ error: "That email does not match the one on record for this matric number." });
         }
         const code = String(Math.floor(100000 + Math.random() * 900000));
-        db.createOtp(matric, code);
+        await db.createOtp(matric, code);
         // NOTE: no mail server configured; the code is returned so the demo UI can
         // show it. Swap this return for a real email (SendGrid/EmailJS/your SMTP).
         res.json({ ok: true, demoOtp: code });
@@ -316,7 +316,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
       wrap(async (req, res) => {
         const matric = String(req.body.matric || "").trim();
         const code = String(req.body.code || "").trim();
-        const result = db.verifyOtp(matric, code);
+        const result = await db.verifyOtp(matric, code);
         if (!result.ok) return res.status(400).json({ error: result.reason });
         res.json({ ok: true });
       })
@@ -328,23 +328,23 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const matric = String(req.body.matric || "").trim();
         const password = String(req.body.password || "");
         if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters long." });
-        if (!db.studentExists(matric)) return res.status(404).json({ error: "No account found for that matric number." });
+        if (!await db.studentExists(matric)) return res.status(404).json({ error: "No account found for that matric number." });
         const salt = db.randomSaltB64();
         const hash = db.hashPasswordSync(password, salt);
-        db.updateStudent(matric, { password_salt: salt, password_hash: hash });
+        await db.updateStudent(matric, { password_salt: salt, password_hash: hash });
         res.json({ ok: true });
       })
     );
 
     /* STUDENT DATA */
-    app.get("/api/me", authStudent, (req, res) => {
-      const s = db.getStudent(req.matric);
-      const pub = db.publicStudent(s);
-      pub.registeredCourses = db.getRegisteredCourses(s.matric);
-      pub.examSelection = db.getExamSelection(s.matric) || null;
-      pub.seat = db.getSeat(s.matric);
+    app.get("/api/me", authStudent, wrap(async (req, res) => {
+      const s = await db.getStudent(req.matric);
+      const pub = await db.publicStudent(s);
+      pub.registeredCourses = await db.getRegisteredCourses(s.matric);
+      pub.examSelection = await db.getExamSelection(s.matric) || null;
+      pub.seat = await db.getSeat(s.matric);
       res.json({ student: pub });
-    });
+    }));
 
     app.post(
       "/api/courses/register",
@@ -356,29 +356,29 @@ function mountApi(app, { student = false, admin = false } = {}) {
           return res.status(400).json({ error: "Select at least one course to register." });
         }
 
-        const normalized = courses.map((c) => {
-          const row = db.getCourse(c.code);
+        const normalized = courses.map(async (c) => {
+          const row = await db.getCourse(c.code);
           if (!row) throw new Error(`Unknown course code ${c.code}`);
           return { code: row.code, title: row.title, unit: row.unit, type: c.type || row.type };
         });
 
-        const carryOverEntries = carryOvers.map((code) => {
-          const row = db.getCourse(code);
+        const carryOverEntries = carryOvers.map(async (code) => {
+          const row = await db.getCourse(code);
           if (!row) throw new Error(`Unknown course code ${code}`);
           return { code: row.code, title: row.title, unit: row.unit, type: "carry_over" };
         });
 
-        db.replaceRegistrations(req.matric, [...normalized, ...carryOverEntries]);
+        await db.replaceRegistrations(req.matric, [...normalized, ...carryOverEntries]);
 
         for (const code of carryOvers) {
-          db.addCarryOver(req.matric, code);
+          await db.addCarryOver(req.matric, code);
         }
 
-        const stu = db.publicStudent(db.getStudent(req.matric));
-        const registered = db.getRegisteredCourses(req.matric);
+        const stu = await db.publicStudent(await db.getStudent(req.matric));
+        const registered = await db.getRegisteredCourses(req.matric);
 
         const totalUnits = registered.reduce((s, c) => s + (Number(c.unit) || 0), 0);
-        db.createNotification(
+        await db.createNotification(
           req.matric,
           "course_registration",
           "Courses Registered",
@@ -394,12 +394,12 @@ function mountApi(app, { student = false, admin = false } = {}) {
       authStudent,
       wrap(async (req, res) => {
         const code = String(req.body.courseCode || "").trim();
-        if (!db.getCourse(code)) return res.status(400).json({ error: "Unknown course code." });
-        const registered = db.getRegisteredCourses(req.matric).map((c) => c.code);
+        if (!await db.getCourse(code)) return res.status(400).json({ error: "Unknown course code." });
+        const registered = (await db.getRegisteredCourses(req.matric)).map((c) => c.code);
         if (!registered.includes(code)) {
           return res.status(400).json({ error: "You have not registered for this course." });
         }
-        db.setExamSelection(req.matric, code);
+        await db.setExamSelection(req.matric, code);
         res.json({ ok: true });
       })
     );
@@ -410,9 +410,9 @@ function mountApi(app, { student = false, admin = false } = {}) {
       wrap(async (req, res) => {
         const credentialId = String(req.body.credentialId || "");
         if (!credentialId) return res.status(400).json({ error: "Credential id required." });
-        db.updateStudent(req.matric, { fingerprint_credential_id: credentialId });
+        await db.updateStudent(req.matric, { fingerprint_credential_id: credentialId });
 
-        db.createNotification(
+        await db.createNotification(
           req.matric,
           "biometric_enrollment",
           "Fingerprint Enrolled",
@@ -423,9 +423,9 @@ function mountApi(app, { student = false, admin = false } = {}) {
       })
     );
 
-    app.get("/api/exams", authStudent, (req, res) => {
-      const registered = db.getRegisteredCourses(req.matric);
-      const schedules = db.allExamSchedules();
+    app.get("/api/exams", authStudent, wrap(async (req, res) => {
+      const registered = await db.getRegisteredCourses(req.matric);
+      const schedules = await db.allExamSchedules();
       const exams = registered.map((c) => {
         const s = schedules[c.code] || {};
         return {
@@ -439,40 +439,40 @@ function mountApi(app, { student = false, admin = false } = {}) {
         };
       });
       res.json({ exams });
-    });
+    }));
 
-    app.get("/api/seat", authStudent, (req, res) => {
-      const seat = db.getSeat(req.matric);
-      const selection = db.getExamSelection(req.matric);
-      const schedule = selection ? db.getExamSchedule(selection.course_code) : null;
+    app.get("/api/seat", authStudent, wrap(async (req, res) => {
+      const seat = await db.getSeat(req.matric);
+      const selection = await db.getExamSelection(req.matric);
+      const schedule = selection ? await db.getExamSchedule(selection.course_code) : null;
       res.json({
         seat,
         examCourse: selection ? { code: selection.course_code } : null,
         schedule,
       });
-    });
+    }));
 
     /* NOTIFICATIONS (student) */
-    app.get("/api/notifications", authStudent, (req, res) => {
-      const notifications = db.getNotifications(req.matric);
-      const unread = db.getUnreadCount(req.matric);
+    app.get("/api/notifications", authStudent, wrap(async (req, res) => {
+      const notifications = await db.getNotifications(req.matric);
+      const unread = await db.getUnreadCount(req.matric);
       res.json({ notifications, unread });
-    });
+    }));
 
-    app.post("/api/notifications/read/:id", authStudent, (req, res) => {
-      db.markAsRead(req.matric, Number(req.params.id));
+    app.post("/api/notifications/read/:id", authStudent, wrap(async (req, res) => {
+      await db.markAsRead(req.matric, Number(req.params.id));
       res.json({ ok: true });
-    });
+    }));
 
-    app.post("/api/notifications/read-all", authStudent, (req, res) => {
-      db.markAllAsRead(req.matric);
+    app.post("/api/notifications/read-all", authStudent, wrap(async (req, res) => {
+      await db.markAllAsRead(req.matric);
       res.json({ ok: true });
-    });
+    }));
 
-    app.delete("/api/notifications", authStudent, (req, res) => {
-      db.clearNotifications(req.matric);
+    app.delete("/api/notifications", authStudent, wrap(async (req, res) => {
+      await db.clearNotifications(req.matric);
       res.json({ ok: true });
-    });
+    }));
 
     /* Student-facing: courses for a given level (used during course registration) */
     app.get(
@@ -483,8 +483,8 @@ function mountApi(app, { student = false, admin = false } = {}) {
         if (![200, 300, 400, 500].includes(level)) {
           return res.status(400).json({ error: "Level must be 200, 300, 400, or 500." });
         }
-        const courses = db.allCourses();
-        const schedules = db.allExamSchedules();
+        const courses = await db.allCourses();
+        const schedules = await db.allExamSchedules();
         const filtered = courses
           .filter((c) => courseLevel(c.code) === level)
           .map((c) => ({
@@ -501,13 +501,13 @@ function mountApi(app, { student = false, admin = false } = {}) {
       "/api/courses/carryover-options/:matric",
       authStudent,
       wrap(async (req, res) => {
-        const stu = db.getStudent(req.params.matric);
+        const stu = await db.getStudent(req.params.matric);
         if (!stu) return res.status(404).json({ error: "Student not found." });
         const studentLevel = courseLevel(stu.level || "");
         if (!studentLevel) {
           return res.status(400).json({ error: "Could not determine your level. Please update your profile." });
         }
-        const courses = db.allCourses();
+        const courses = await db.allCourses();
         const options = courses
           .filter((c) => {
             const cl = courseLevel(c.code);
@@ -542,7 +542,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
           return res.status(429).json({ error: `Too many failed attempts. Please wait ${Math.ceil(consecutiveWait / 1000)} seconds.` });
         }
 
-        if (!db.verifyAdminCredentials(email, password, adminKey)) {
+        if (!await db.verifyAdminCredentials(email, password, adminKey)) {
           recordIpFailure(ip);
           recordEmailConsecutiveFailure(ip, email);
           return res.status(401).json({ error: "Invalid admin credentials." });
@@ -593,11 +593,11 @@ function mountApi(app, { student = false, admin = false } = {}) {
         if (adminKey !== confirmAdminKey) {
           return res.status(400).json({ error: "Admin secret keys do not match." });
         }
-        if (db.getAdmin(email)) {
+        if (await db.getAdmin(email)) {
           return res.status(409).json({ error: "An admin account with this email already exists." });
         }
 
-        db.createAdmin({ email, firstName, lastName, phone, department, password, adminKey });
+        await db.createAdmin({ email, firstName, lastName, phone, department, password, adminKey });
         res.json({ ok: true, message: "Admin account created successfully. You can now log in." });
       })
     );
@@ -607,54 +607,53 @@ function mountApi(app, { student = false, admin = false } = {}) {
       "/api/admin/stats",
       authAdmin,
       wrap(async (req, res) => {
-        const stats = db.verificationStats();
-        const schedules = db.allExamSchedules();
+        const stats = await db.verificationStats();
+        const schedules = await db.allExamSchedules();
         res.json({
-          totalStudents: db.allStudents().length,
+          totalStudents: (await db.allStudents()).length,
           passed: stats.pass,
           failed: stats.fail,
           attendance: stats.attendance,
           examsScheduled: Object.keys(schedules).length,
-          seatsAllocated: db.allSeats().length,
+          seatsAllocated: (await db.allSeats()).length,
         });
       })
     );
 
-    app.get("/api/admin/students", authAdmin, (req, res) => {
-      const students = db.allStudents().map((s) => {
-        const pub = db.publicStudent(s);
-        pub.registeredCourses = db.getRegisteredCourses(s.matric);
-        pub.examSelection = db.getExamSelection(s.matric) || null;
-        pub.seat = db.getSeat(s.matric);
+    app.get("/api/admin/students", authAdmin, wrap(async (req, res) => {
+      const students = (await db.allStudents()).map(async (s) => {
+        const pub = await db.publicStudent(s);
+        pub.registeredCourses = await db.getRegisteredCourses(s.matric);
+        pub.examSelection = await db.getExamSelection(s.matric) || null;
+        pub.seat = await db.getSeat(s.matric);
         return pub;
       });
       res.json(students);
-    });
+    }));
 
     /* Exam-day 1:N index: every scanner-enrolled ("zk:") fingerprint
        template, decrypted, behind authAdmin only. The checkpoint page sends
        this list to the exam PC's local scanner bridge, which captures one
        live finger and matches it against all of them (the ZK SDK only runs
        on Windows, so matching cannot happen on this server). */
-    app.get("/api/admin/fingerprints", authAdmin, (req, res) => {
-      const rows = db
-        .allStudents()
+    app.get("/api/admin/fingerprints", authAdmin, wrap(async (req, res) => {
+      const rows = (await db.allStudents())
         .map((s) => ({ matric: s.matric, template: s.fingerprintCredentialId }))
         .filter((r) => r.template && r.template.startsWith("zk:"));
       res.json(rows);
-    });
+    }));
 
     app.get(
       "/api/admin/student/:matric",
       authAdmin,
       wrap(async (req, res) => {
-        const s = db.getStudent(req.params.matric);
+        const s = await db.getStudent(req.params.matric);
         if (!s) return res.status(404).json({ error: "Student not found." });
-        const pub = db.publicStudent(s);
-        pub.registeredCourses = db.getRegisteredCourses(s.matric);
-        pub.examSelection = db.getExamSelection(s.matric) || null;
-        pub.seat = db.getSeat(s.matric);
-        pub.schedule = pub.examSelection ? db.getExamSchedule(pub.examSelection.course_code) : null;
+        const pub = await db.publicStudent(s);
+        pub.registeredCourses = await db.getRegisteredCourses(s.matric);
+        pub.examSelection = await db.getExamSelection(s.matric) || null;
+        pub.seat = await db.getSeat(s.matric);
+        pub.schedule = pub.examSelection ? await db.getExamSchedule(pub.examSelection.course_code) : null;
         res.json(pub);
       })
     );
@@ -666,11 +665,11 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const b = req.body || {};
         const matric = String(b.matric || "").trim();
         if (!/^\d{11}$/.test(matric)) return res.status(400).json({ error: "Matric number must be exactly 11 digits." });
-        if (db.studentExists(matric)) return res.status(409).json({ error: "A student with this matric number already exists." });
+        if (await db.studentExists(matric)) return res.status(409).json({ error: "A student with this matric number already exists." });
         const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
         const salt = db.randomSaltB64();
         const hash = db.hashPasswordSync(tempPassword, salt);
-        db.createStudent({
+        await db.createStudent({
           matric,
           firstName: String(b.firstName || "").trim() || "(no name)",
           lastName: String(b.lastName || "").trim() || "(no name)",
@@ -681,7 +680,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
           passwordHash: hash,
           createdAt: Date.now(),
         });
-        res.status(201).json({ student: db.publicStudent(db.getStudent(matric)), tempPassword });
+        res.status(201).json({ student: await db.publicStudent(await db.getStudent(matric)), tempPassword });
       })
     );
 
@@ -689,8 +688,8 @@ function mountApi(app, { student = false, admin = false } = {}) {
       "/api/admin/students/:matric",
       authAdmin,
       wrap(async (req, res) => {
-        if (!db.studentExists(req.params.matric)) return res.status(404).json({ error: "Student not found." });
-        db.deleteStudent(req.params.matric);
+        if (!await db.studentExists(req.params.matric)) return res.status(404).json({ error: "Student not found." });
+        await db.deleteStudent(req.params.matric);
         res.json({ ok: true });
       })
     );
@@ -702,15 +701,15 @@ function mountApi(app, { student = false, admin = false } = {}) {
       wrap(async (req, res) => {
         const b = req.body || {};
         const code = String(b.courseCode || "").trim().toUpperCase();
-        if (!db.getCourse(code)) return res.status(400).json({ error: "Unknown course code." });
+        if (!await db.getCourse(code)) return res.status(400).json({ error: "Unknown course code." });
         if (!b.date || !b.time || !b.hall) return res.status(400).json({ error: "Date, time and hall are required." });
-        db.setExamSchedule(code, { date: String(b.date), time: String(b.time), hall: String(b.hall) });
+        await db.setExamSchedule(code, { date: String(b.date), time: String(b.time), hall: String(b.hall) });
 
         // Notify students registered for this course
-        const course = db.getCourse(code);
-        const registrations = db.db.prepare("SELECT matric FROM course_registrations WHERE course_code = ?").all(code);
+        const course = await db.getCourse(code);
+        const registrations = await db.getRegisteredStudents(code);
         for (const reg of registrations) {
-          db.createNotification(
+          await db.createNotification(
             reg.matric,
             "exam_schedule",
             "Exam Date Published",
@@ -718,7 +717,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
           );
         }
 
-        res.json({ ok: true, schedule: db.getExamSchedule(code) });
+        res.json({ ok: true, schedule: await db.getExamSchedule(code) });
       })
     );
 
@@ -727,7 +726,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
       authAdmin,
       wrap(async (req, res) => {
         const code = String(req.params.courseCode).trim().toUpperCase();
-        db.deleteExamSchedule(code);
+        await db.deleteExamSchedule(code);
         res.json({ ok: true });
       })
     );
@@ -741,8 +740,8 @@ function mountApi(app, { student = false, admin = false } = {}) {
         if (![200, 300, 400, 500].includes(level)) {
           return res.status(400).json({ error: "Level must be 200, 300, 400, or 500." });
         }
-        const courses = db.allCourses();
-        const schedules = db.allExamSchedules();
+        const courses = await db.allCourses();
+        const schedules = await db.allExamSchedules();
         const filtered = courses
           .filter((c) => courseLevel(c.code) === level)
           .map((c) => ({
@@ -758,8 +757,8 @@ function mountApi(app, { student = false, admin = false } = {}) {
       "/api/admin/courses",
       authAdmin,
       wrap(async (req, res) => {
-        const courses = db.allCourses();
-        const schedules = db.allExamSchedules();
+        const courses = await db.allCourses();
+        const schedules = await db.allExamSchedules();
         const enriched = courses.map((c) => ({
           ...c,
           level: courseLevel(c.code),
@@ -785,12 +784,12 @@ function mountApi(app, { student = false, admin = false } = {}) {
         if (!["compulsory", "elective"].includes(type)) {
           return res.status(400).json({ error: "Type must be 'compulsory' or 'elective'." });
         }
-        if (db.getCourse(code)) {
+        if (await db.getCourse(code)) {
           return res.status(409).json({ error: `Course ${code} already exists.` });
         }
-        const course = db.insertCourse({ code, title, unit, type, level });
+        const course = await db.insertCourse({ code, title, unit, type, level });
 
-        const count = db.notifyAllStudents(
+        const count = await db.notifyAllStudents(
           "course_upload",
           "New Course Available",
           `A new ${type} course ${code} — ${title} (${unit} unit${unit === 1 ? "" : "s"}) has been added to the course catalog.`
@@ -805,7 +804,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
       authAdmin,
       wrap(async (req, res) => {
         const code = String(req.params.code).trim().toUpperCase();
-        const existing = db.getCourse(code);
+        const existing = await db.getCourse(code);
         if (!existing) return res.status(404).json({ error: "Course not found." });
         const b = req.body || {};
         const patch = {};
@@ -817,7 +816,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
             return res.status(400).json({ error: "Type must be 'compulsory' or 'elective'." });
           }
         }
-        const course = db.updateCourse(code, patch);
+        const course = await db.updateCourse(code, patch);
         res.json({ ok: true, course });
       })
     );
@@ -827,8 +826,8 @@ function mountApi(app, { student = false, admin = false } = {}) {
       authAdmin,
       wrap(async (req, res) => {
         const code = String(req.params.code).trim().toUpperCase();
-        if (!db.getCourse(code)) return res.status(404).json({ error: "Course not found." });
-        db.deleteCourse(code);
+        if (!await db.getCourse(code)) return res.status(404).json({ error: "Course not found." });
+        await db.deleteCourse(code);
         res.json({ ok: true });
       })
     );
@@ -839,11 +838,11 @@ function mountApi(app, { student = false, admin = false } = {}) {
       "/api/admin/student/:matric/verify",
       authAdmin,
       wrap(async (req, res) => {
-        const s = db.getStudentRaw(req.params.matric);
+        const s = await db.getStudentRaw(req.params.matric);
         if (!s) return res.status(404).json({ error: "Student not found." });
         const b = req.body || {};
         const result = b.result === "fail" ? "fail" : "pass";
-        db.logVerification(req.params.matric, result, String(b.details || "Checkpoint verification"));
+        await db.logVerification(req.params.matric, result, String(b.details || "Checkpoint verification"));
         res.json({ ok: true });
       })
     );
@@ -855,24 +854,24 @@ function mountApi(app, { student = false, admin = false } = {}) {
       "/api/admin/student/:matric/approve",
       authAdmin,
       wrap(async (req, res) => {
-        const s = db.getStudentRaw(req.params.matric);
+        const s = await db.getStudentRaw(req.params.matric);
         if (!s) return res.status(404).json({ error: "Student not found." });
-        let selection = db.getExamSelection(req.params.matric);
+        let selection = await db.getExamSelection(req.params.matric);
         if (!selection && req.body.course_code) {
-          db.setExamSelection(req.params.matric, req.body.course_code);
-          selection = db.getExamSelection(req.params.matric);
+          await db.setExamSelection(req.params.matric, req.body.course_code);
+          selection = await db.getExamSelection(req.params.matric);
         }
         if (!selection) return res.status(400).json({ error: "This student has not selected a course to sit for." });
-        if (!db.hasRecentFingerprintPass(req.params.matric)) {
+        if (!await db.hasRecentFingerprintPass(req.params.matric)) {
           return res.status(400).json({ error: "The fingerprint check must pass before seat allocation." });
         }
-        const schedule = db.getExamSchedule(selection.course_code);
+        const schedule = await db.getExamSchedule(selection.course_code);
         if (!schedule) return res.status(400).json({ error: "No exam schedule has been set for this course yet." });
-        const seat = db.allocateSeat(req.params.matric, selection.course_code);
-        db.logVerification(req.params.matric, "attendance", `Approved and seated (${schedule.hall}, Seat ${seat.seat})`);
+        const seat = await db.allocateSeat(req.params.matric, selection.course_code);
+        await db.logVerification(req.params.matric, "attendance", `Approved and seated (${schedule.hall}, Seat ${seat.seat})`);
 
         // Notify student of seat allocation
-        db.createNotification(
+        await db.createNotification(
           req.params.matric,
           "seat_allocation",
           "Seat Allocated",
@@ -883,28 +882,28 @@ function mountApi(app, { student = false, admin = false } = {}) {
       })
     );
 
-    app.get("/api/admin/log", authAdmin, (req, res) => {
-      const log = db.getVerificationLog().reverse().map((e) => ({ ...e }));
+    app.get("/api/admin/log", authAdmin, wrap(async (req, res) => {
+      const log = (await db.getVerificationLog()).reverse().map((e) => ({ ...e }));
       res.json(log);
-    });
+    }));
 
-    app.get("/api/admin/seats", authAdmin, (req, res) => {
-      res.json(db.allSeats());
-    });
+    app.get("/api/admin/seats", authAdmin, wrap(async (req, res) => {
+      res.json(await db.allSeats());
+    }));
 
-    app.get("/api/admin/schedules", authAdmin, (req, res) => {
-      res.json(db.allExamSchedules());
-    });
+    app.get("/api/admin/schedules", authAdmin, wrap(async (req, res) => {
+      res.json(await db.allExamSchedules());
+    }));
 
-    app.delete("/api/admin/log", authAdmin, (req, res) => {
-      const cleared = db.clearVerificationLog();
+    app.delete("/api/admin/log", authAdmin, wrap(async (req, res) => {
+      const cleared = await db.clearVerificationLog();
       res.json({ ok: true, cleared });
-    });
+    }));
 
-    app.delete("/api/admin/all", authAdmin, (req, res) => {
-      const counts = db.clearAllData();
+    app.delete("/api/admin/all", authAdmin, wrap(async (req, res) => {
+      const counts = await db.clearAllData();
       res.json({ ok: true, counts });
-    });
+    }));
   }
 
   /* Unmatched API paths on this server → JSON 404 (never the static files) */

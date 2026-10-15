@@ -11,6 +11,7 @@ const path = require("node:path");
 const express = require("express");
 
 const { mountApi, normalizePath } = require("./api");
+const db = require("./db");
 
 const FRONTEND_DIR = path.join(__dirname, "..");
 const PORT = process.env.PORT || 4000;
@@ -22,7 +23,7 @@ const app = express();
 /* Student + public endpoints only — no admin route is mounted on this port. */
 mountApi(app, { student: true });
 
-/* Never expose server source code or the SQLite database file. */
+/* Never expose server source code or the database. */
 app.use((req, res, next) => {
   const p = normalizePath(req);
   if (p === "/server" || p.startsWith("/server/")) return res.status(404).send("Not found");
@@ -41,8 +42,15 @@ app.use((req, res, next) => {
 
 app.use(express.static(FRONTEND_DIR));
 
-app.listen(PORT, () => {
-  console.log(`EIPS student site running at http://localhost:${PORT}`);
-  console.log(`Admin portal runs separately at ${ADMIN_URL}`);
-  console.log("Serving frontend from " + FRONTEND_DIR);
-});
+db.ready
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`EIPS student site running at http://localhost:${PORT}`);
+      console.log(`Admin portal runs separately at ${ADMIN_URL}`);
+      console.log("Serving frontend from " + FRONTEND_DIR);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to initialise PostgreSQL:", err);
+    process.exit(1);
+  });

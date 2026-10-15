@@ -1,0 +1,6 @@
+node_modules/
+.env
+server/eips.db
+server/eips.db-shm
+server/eips.db-wal
+bridge/__pycache__/

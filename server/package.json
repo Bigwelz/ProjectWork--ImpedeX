@@ -1,7 +1,7 @@
 {
   "name": "eips-backend",
   "version": "1.0.0",
-  "description": "Exam Impersonation Prevention System — Express + SQLite backend",
+  "description": "Exam Impersonation Prevention System — Express + PostgreSQL backend",
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
