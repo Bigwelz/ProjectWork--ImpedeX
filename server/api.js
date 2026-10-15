@@ -199,6 +199,21 @@ function mountApi(app, { student = false, admin = false } = {}) {
   app.use(express.urlencoded({ extended: true }));
   app.use(securityHeaders);
 
+  /* Optional CORS — only active when CORS_ALLOWED_ORIGIN is set. Use this
+     if a frontend calls the API directly from its own origin instead of
+     going through the Vercel /api proxy (e.g. set it to the Vercel URL).
+     With the proxy approach below, no CORS headers are needed. */
+  const CORS_ALLOWED_ORIGIN = process.env.CORS_ALLOWED_ORIGIN || "";
+  if (CORS_ALLOWED_ORIGIN) {
+    app.use((req, res, next) => {
+      res.setHeader("Access-Control-Allow-Origin", CORS_ALLOWED_ORIGIN);
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      if (req.method === "OPTIONS") return res.sendStatus(204);
+      next();
+    });
+  }
+
   /* ── PUBLIC (both servers) ── */
   app.get("/api/health", (req, res) => res.json({ ok: true, app: APP.name, db: true }));
 
