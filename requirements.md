@@ -3,7 +3,7 @@
 **Project:** ImpedeX — Electronic Exam Identity & Proctoring System (EIPS)
 **Version:** 1.0
 **Date:** 14 October 2026
-**Stack:** Static HTML/CSS/JS frontend · Node.js/Express API · PostgreSQL · Python ZKTeco bridge
+**Stack:** Static HTML/CSS/JS frontend · Node.js/Express API · SQLite · Python ZKTeco bridge
 
 ---
 
@@ -51,9 +51,8 @@ ImpedeX replaces manual exam-hall identity checks with registered biometrics. St
 - One exam course per student per sitting (`exam_selections.matric` is PK).
 
 ### 2.3 Constraints
-- Hosted on Render; data in a **managed PostgreSQL** instance (`DATABASE_URL`).
+- Hosted on Render free tier; SQLite on ephemeral disk (data wiped on redeploy — external DB required for production).
 - Admin key and JWT secret provided via environment variables (`EIPS_JWT_SECRET`, `EIPS_ENCRYPTION_KEY`).
-- Local development runs an embedded PostgreSQL via `scripts/pg-local.cjs` (starts a throwaway cluster on `127.0.0.1:5432`, database `eips`).
 - Fingerprint templates stored **encrypted at rest**; raw templates never returned to clients.
 
 ---
@@ -177,8 +176,7 @@ ImpedeX replaces manual exam-hall identity checks with registered biometrics. St
 | NFR-5.1 | Modern evergreen browsers (Chrome/Edge/Firefox). |
 | NFR-5.2 | Deployable to Render with Root Directory `server`, start command `npm start` (combined mode via `both.js`). |
 | NFR-5.3 | Exam PC must set `ZKBRIDGE_ORIGINS=https://<app>.onrender.com`. |
-| NFR-5.4 | Deployable to Render with Root Directory `server`, start command `npm start` (combined mode via `both.js`); `DATABASE_URL` from a managed PostgreSQL service. |
-| NFR-5.5 | Local dev: `node scripts/pg-local.cjs start` (embedded PostgreSQL on :5432), then `DATABASE_URL=postgres://postgres@127.0.0.1:5432/eips npm start`. |
+| NFR-5.4 | SQLite acceptable for demo; production shall use persistent storage/external DB. |
 
 ---
 
@@ -208,7 +206,7 @@ SMTP/SendGrid integration point exists in `server/mailer.js`; until configured, 
 ---
 
 ## 6. Data Requirements
-PostgreSQL schema (11 tables): `students`, `course_catalog`, `course_registrations`, `exam_selections`, `exam_schedules`, `seats`, `verification_log`, `carry_overs`, `admin_accounts`, `otps`, `notifications` — see ER diagram in `uml-diagrams.md` §4. Auto-increment columns use `BIGINT GENERATED ALWAYS AS IDENTITY`; all timestamps are `BIGINT` epoch-milliseconds. Existing SQLite data migrates with `scripts/migrate-sqlite-to-pg.cjs`. Retention: verification log purgeable by admin; student deletion cascades.
+Tables: `students`, `course_catalog`, `course_registrations`, `exam_selections`, `exam_schedules`, `seats`, `verification_log`, `carry_overs`, `admin_accounts`, `otps`, `notifications` — see ER diagram in `uml-diagrams.md` §4. Retention: verification log purgeable by admin; student deletion cascades.
 
 ---
 

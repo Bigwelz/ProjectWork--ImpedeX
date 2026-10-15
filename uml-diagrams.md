@@ -65,7 +65,7 @@ flowchart TB
             IDX & ADM --> APIR --> DBM
             APIR -.-> MAIL
         end
-        SQLITE[("PostgreSQL")]
+        SQLITE[("SQLite<br/>eips.db")]
         DBM --> SQLITE
     end
 
@@ -470,10 +470,10 @@ flowchart LR
     subgraph CLOUD["Render (cloud)"]
         direction TB
         WEB["Web service<br/>Root dir: server<br/>Start: npm start (both.js)<br/>Port: process.env.PORT"]
-        PGSVC["Managed PostgreSQL<br/>DATABASE_URL"]
-        ENV["Env vars<br/>EIPS_JWT_SECRET<br/>EIPS_ENCRYPTION_KEY<br/>DATABASE_URL"]
+        ENV["Env vars<br/>EIPS_JWT_SECRET<br/>EIPS_ENCRYPTION_KEY"]
+        DISK[("SQLite on disk<br/>ephemeral — wiped on redeploy")]
         WEB --- ENV
-        WEB --- PGSVC
+        WEB --- DISK
     end
 
     subgraph EXAMPC["Exam-day PC (campus LAN)"]
@@ -490,7 +490,6 @@ flowchart LR
     STU -->|HTTPS REST| WEB
     ADMPC -->|HTTPS REST| WEB
     ADMPC -->|localhost:8765<br/>ZKBRIDGE_ORIGINS=https://your-app.onrender.com| PY
-    PGSVC -. note .-> PGLOCAL["Local dev: scripts/pg-local.cjs<br/>starts embedded PostgreSQL on :5432<br/>(database eips) — the sandboxed dev shell<br/>cannot run it (stripped SeCreateGlobalPrivilege);<br/>run it from a normal terminal"]
 ```
 
 ---

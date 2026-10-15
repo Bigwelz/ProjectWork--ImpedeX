@@ -14,11 +14,12 @@
 
 "use strict";
 
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 const path = require("node:path");
 const express = require("express");
 
-const { mountApi, normalizePath } = require("./api");
 const db = require("./db");
+const { mountApi, normalizePath } = require("./api");
 
 const FRONTEND_DIR = path.join(__dirname, "..");
 const PORT = process.env.PORT || 4000;
@@ -29,7 +30,7 @@ const app = express();
    (JWT + rate-limited login); student endpoints behind authStudent. */
 mountApi(app, { student: true, admin: true });
 
-/* Never expose server source code or the database. */
+/* Never expose server source code or the SQLite database file. */
 app.use((req, res, next) => {
   const p = normalizePath(req);
   if (p === "/server" || p.startsWith("/server/")) return res.status(404).send("Not found");
@@ -38,14 +39,12 @@ app.use((req, res, next) => {
 
 app.use(express.static(FRONTEND_DIR));
 
-db.ready
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`EIPS combined site running on port ${PORT}`);
-      console.log("Serving frontend from " + FRONTEND_DIR);
-    });
-  })
-  .catch((err) => {
-    console.error("Failed to initialise PostgreSQL:", err);
-    process.exit(1);
+db.init().then(() => {
+  app.listen(PORT, () => {
+    console.log(`EIPS combined site running on port ${PORT}`);
+    console.log("Serving frontend from " + FRONTEND_DIR);
   });
+}).catch((e) => {
+  console.error("Failed to initialize database:", e.message);
+  process.exit(1);
+});

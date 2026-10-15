@@ -10,11 +10,12 @@
 
 "use strict";
 
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 const path = require("node:path");
 const express = require("express");
 
-const { mountApi, normalizePath } = require("./api");
 const db = require("./db");
+const { mountApi, normalizePath } = require("./api");
 
 const FRONTEND_DIR = path.join(__dirname, "..");
 const ADMIN_PORT = process.env.ADMIN_PORT || 4001;
@@ -26,7 +27,7 @@ const app = express();
 /* Admin + public endpoints only — no student route is mounted on this port. */
 mountApi(app, { admin: true });
 
-/* Never expose server source code or the database. */
+/* Never expose server source code or the SQLite database file. */
 app.use((req, res, next) => {
   const p = normalizePath(req);
   if (p === "/server" || p.startsWith("/server/")) return res.status(404).send("Not found");
@@ -48,15 +49,13 @@ app.use((req, res, next) => {
 
 app.use(express.static(FRONTEND_DIR));
 
-db.ready
-  .then(() => {
-    app.listen(ADMIN_PORT, () => {
-      console.log(`EIPS admin portal running at http://localhost:${ADMIN_PORT}`);
-      console.log(`Student site runs separately at ${STUDENT_URL}`);
-      console.log("Serving admin frontend from " + FRONTEND_DIR);
-    });
-  })
-  .catch((err) => {
-    console.error("Failed to initialise PostgreSQL:", err);
-    process.exit(1);
+db.init().then(() => {
+  app.listen(ADMIN_PORT, () => {
+    console.log(`EIPS admin portal running at http://localhost:${ADMIN_PORT}`);
+    console.log(`Student site runs separately at ${STUDENT_URL}`);
+    console.log("Serving admin frontend from " + FRONTEND_DIR);
   });
+}).catch((e) => {
+  console.error("Failed to initialize database:", e.message);
+  process.exit(1);
+});

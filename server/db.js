@@ -1,77 +1,29 @@
 /* =============================================
    EIPS — Database Layer (server/db.js)
-   PostgreSQL via node-postgres (pg).
-   All data functions are async — every caller awaits.
-
-   Connection:
-     Local dev : DATABASE_URL=postgres://postgres@127.0.0.1:5432/eips
-     Render    : DATABASE_URL provided by the hosted PostgreSQL service
-   The module keeps the SAME exported interface the
-   Express layer (api.js) already uses.
+   Express + pg (Neon PostgreSQL)
+   Async — all functions use the pool.
+   Requires .env loaded by the caller (dotenv).
    ============================================= */
 
 "use strict";
 
-require("./load-env");
-
-const { Pool } = require("pg");
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 const crypto = require("node:crypto");
+const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgres://postgres@127.0.0.1:5432/eips",
-  connectionTimeoutMillis: 5000,
-  max: 10,
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes("localhost") ? false : { rejectUnauthorized: false },
+  max: 3,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
-/* PostgreSQL placeholders are $1,$2...; the SQL below keeps the
-   familiar `?` style and is rewritten here. No `?` ever appears
-   inside a string literal, so a plain replace is safe. */
-function q(sql) {
-  let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
-}
+pool.on("error", (err) => console.error("PostgreSQL pool error:", err.message));
 
-async function exec(sql) {
-  await pool.query(sql);
-}
-
-function prepare(sql) {
-  return {
-    async get(...params) {
-      const r = await pool.query(q(sql), params);
-      return r.rows[0] || undefined;
-    },
-    async all(...params) {
-      const r = await pool.query(q(sql), params);
-      return r.rows;
-    },
-    async run(...params) {
-      const r = await pool.query(q(sql), params);
-      return {
-        changes: r.rowCount,
-        lastInsertRowid: r.rows[0] ? r.rows[0].id : undefined,
-      };
-    },
-  };
-}
-
-async function withTransaction(fn) {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await fn(client);
-    await client.query("COMMIT");
-  } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw e;
-  } finally {
-    client.release();
-  }
-}
-
-const ENCRYPTION_KEY = process.env.EIPS_ENCRYPTION_KEY || crypto.createHash("sha256").update("ImpedeX-Biometric-Key-2026").digest("hex").slice(0, 32);
+const ENCRYPTION_KEY =
+  process.env.EIPS_ENCRYPTION_KEY ||
+  crypto.createHash("sha256").update("ImpedeX-Biometric-Key-2026").digest("hex").slice(0, 32);
 
 function encryptData(plaintext) {
   if (!plaintext) return null;
@@ -97,18 +49,9 @@ function decryptData(ciphertext) {
 }
 
 /* ─────────────────────────────────────────
-   SCHEMA
-───────────────────────────────────────── */
-async function columnExists(table, col) {
-  const r = await pool.query(
-    "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2",
-    [table, col]
-  );
-  return r.rowCount > 0;
-}
-
-async function initSchema() {
-  await pool.query(`
+   SCHEMA — CREATE IF NOT EXISTS (idempotent)
+   ───────────────────────────────────────── */
+const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS students (
     matric          TEXT PRIMARY KEY,
     first_name      TEXT NOT NULL,
@@ -121,8 +64,8 @@ async function initSchema() {
     session         TEXT DEFAULT '',
     password_salt   TEXT NOT NULL,
     password_hash   TEXT NOT NULL,
-    photo           TEXT,               -- data URL or NULL
-    fingerprint_credential_id TEXT,     -- "zk:" scanner template or WebAuthn credential id, or NULL
+    photo           TEXT,
+    fingerprint_credential_id TEXT,
     created_at      BIGINT NOT NULL,
     registered_at   BIGINT
   );
@@ -136,7 +79,7 @@ async function initSchema() {
   );
 
   CREATE TABLE IF NOT EXISTS course_registrations (
-    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id            SERIAL PRIMARY KEY,
     matric        TEXT NOT NULL REFERENCES students(matric) ON DELETE CASCADE,
     course_code   TEXT NOT NULL REFERENCES course_catalog(code),
     type          TEXT NOT NULL,
@@ -159,7 +102,7 @@ async function initSchema() {
   );
 
   CREATE TABLE IF NOT EXISTS seats (
-    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id           SERIAL PRIMARY KEY,
     matric       TEXT NOT NULL REFERENCES students(matric) ON DELETE CASCADE,
     course_code  TEXT NOT NULL REFERENCES course_catalog(code),
     hall         TEXT NOT NULL,
@@ -170,15 +113,15 @@ async function initSchema() {
   );
 
   CREATE TABLE IF NOT EXISTS verification_log (
-    id      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id      SERIAL PRIMARY KEY,
     matric  TEXT NOT NULL,
-    result  TEXT NOT NULL,               -- pass | fail | attendance
+    result  TEXT NOT NULL,
     details TEXT NOT NULL,
     time    BIGINT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS carry_overs (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id          SERIAL PRIMARY KEY,
     matric      TEXT NOT NULL REFERENCES students(matric) ON DELETE CASCADE,
     course_code TEXT NOT NULL REFERENCES course_catalog(code),
     added_at    BIGINT NOT NULL,
@@ -193,8 +136,8 @@ async function initSchema() {
     department TEXT DEFAULT '',
     salt       TEXT NOT NULL,
     hash       TEXT NOT NULL,
-    access_salt  TEXT,
-    access_hash  TEXT,
+    access_salt TEXT,
+    access_hash TEXT,
     created_at BIGINT NOT NULL
   );
 
@@ -207,7 +150,7 @@ async function initSchema() {
   );
 
   CREATE TABLE IF NOT EXISTS notifications (
-    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id         SERIAL PRIMARY KEY,
     matric     TEXT NOT NULL,
     type       TEXT NOT NULL,
     title      TEXT NOT NULL,
@@ -218,34 +161,15 @@ async function initSchema() {
 
   CREATE INDEX IF NOT EXISTS idx_notifications_matric ON notifications(matric);
   CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(matric, read);
-  `);
+`;
 
-  /* ── Migrations: add missing columns to admin_accounts ── */
-  const adminMigrations = [
-    ["first_name", "TEXT NOT NULL DEFAULT ''"],
-    ["last_name", "TEXT NOT NULL DEFAULT ''"],
-    ["phone", "TEXT DEFAULT ''"],
-    ["department", "TEXT DEFAULT ''"],
-  ];
-  for (const [col, typedef] of adminMigrations) {
-    if (!(await columnExists("admin_accounts", col))) {
-      await exec(`ALTER TABLE admin_accounts ADD COLUMN ${col} ${typedef}`);
-    }
-  }
-
-  if (!(await columnExists("course_catalog", "level"))) {
-    await exec("ALTER TABLE course_catalog ADD COLUMN level INTEGER");
-  }
-
-  /* ── Migrations: facial recognition removed — drop the column ── */
-  if (await columnExists("students", "face_descriptor")) {
-    await exec("ALTER TABLE students DROP COLUMN face_descriptor");
-  }
+async function initSchema() {
+  await pool.query(SCHEMA_SQL);
 }
 
 /* ─────────────────────────────────────────
    SEED — course catalogue + default admin
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 const COMPULSORY = [
   ["IFT502", "Computer Modeling & Simulation", 3],
   ["IFT508", "Systems Implementation & Evaluation", 2],
@@ -270,31 +194,47 @@ const ELECTIVE = [
   ["GST501", "Technical Writing & Communication", 1],
 ];
 
-async function seedCourses() {
-  const seedCourseInsert = prepare(
-    "INSERT INTO course_catalog (code, title, unit, type) VALUES (?, ?, ?, ?) ON CONFLICT (code) DO NOTHING"
-  );
-  for (const [code, title, unit] of COMPULSORY) await seedCourseInsert.run(code, title, unit, "compulsory");
-  for (const [code, title, unit] of ELECTIVE) await seedCourseInsert.run(code, title, unit, "elective");
-}
-
 const DEFAULT_ADMIN_EMAIL = "admin@futo.edu.ng";
 const DEFAULT_ADMIN_PASSWORD = "Admin@123!";
 const DEFAULT_ADMIN_ACCESS_CODE = "ImpedeX-SecureAdmin-2026!";
 
+async function seedCourses() {
+  for (const [code, title, unit] of COMPULSORY) {
+    await pool.query(
+      "INSERT INTO course_catalog (code, title, unit, type) VALUES ($1, $2, $3, 'compulsory') ON CONFLICT (code) DO NOTHING",
+      [code, title, unit]
+    );
+  }
+  for (const [code, title, unit] of ELECTIVE) {
+    await pool.query(
+      "INSERT INTO course_catalog (code, title, unit, type) VALUES ($1, $2, $3, 'elective') ON CONFLICT (code) DO NOTHING",
+      [code, title, unit]
+    );
+  }
+}
+
 async function seedAdmin() {
-  const salt = randomSaltB64();
+  const { rows } = await pool.query("SELECT email FROM admin_accounts WHERE email = $1", [DEFAULT_ADMIN_EMAIL]);
+  if (rows.length) return;
+  const salt = crypto.randomBytes(16).toString("base64");
   const hash = hashPasswordSync(DEFAULT_ADMIN_PASSWORD, salt);
-  const accessSalt = randomSaltB64();
+  const accessSalt = crypto.randomBytes(16).toString("base64");
   const accessHash = hashPasswordSync(DEFAULT_ADMIN_ACCESS_CODE, accessSalt);
-  await prepare(
-    "INSERT INTO admin_accounts (email, salt, hash, access_salt, access_hash, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (email) DO NOTHING"
-  ).run(DEFAULT_ADMIN_EMAIL, salt, hash, accessSalt, accessHash, Date.now());
+  await pool.query(
+    "INSERT INTO admin_accounts (email, salt, hash, access_salt, access_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+    [DEFAULT_ADMIN_EMAIL, salt, hash, accessSalt, accessHash, Date.now()]
+  );
+}
+
+async function init() {
+  await initSchema();
+  await seedCourses();
+  await seedAdmin();
 }
 
 /* ─────────────────────────────────────────
    PASSWORD HASHING (server-side, PBKDF2-SHA256)
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 
 function hashPasswordSync(password, saltB64) {
   return crypto
@@ -320,72 +260,79 @@ function timingSafeEqualStr(a, b) {
 
 /* ─────────────────────────────────────────
    STUDENTS
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 async function createStudent(data) {
-  await prepare(
+  await pool.query(
     `INSERT INTO students (matric, first_name, last_name, email, phone, department, faculty, level, session,
      password_salt, password_hash, photo, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    data.matric,
-    data.firstName,
-    data.lastName,
-    data.email,
-    data.phone || "",
-    data.department || "",
-    data.faculty || "",
-    data.level || "",
-    data.session || "",
-    data.passwordSalt,
-    data.passwordHash,
-    data.photo || null,
-    data.createdAt || Date.now()
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    [
+      data.matric,
+      data.firstName,
+      data.lastName,
+      data.email,
+      data.phone || "",
+      data.department || "",
+      data.faculty || "",
+      data.level || "",
+      data.session || "",
+      data.passwordSalt,
+      data.passwordHash,
+      data.photo || null,
+      data.createdAt || Date.now(),
+    ]
   );
 }
 
 async function getStudent(matric) {
-  const r = await prepare("SELECT * FROM students WHERE matric = ?").get(matric);
-  if (!r) return null;
-  return rowToStudent(r);
+  const { rows } = await pool.query("SELECT * FROM students WHERE matric = $1", [matric]);
+  if (!rows.length) return null;
+  return rowToStudent(rows[0]);
 }
 
 async function getStudentRaw(matric) {
-  return prepare("SELECT * FROM students WHERE matric = ?").get(matric);
+  const { rows } = await pool.query("SELECT * FROM students WHERE matric = $1", [matric]);
+  return rows[0] || null;
 }
 
 async function allStudents() {
-  const rows = await prepare("SELECT * FROM students ORDER BY created_at DESC").all();
+  const { rows } = await pool.query("SELECT * FROM students ORDER BY created_at DESC");
   return rows.map(rowToStudent);
 }
 
 async function studentExists(matric) {
-  return prepare("SELECT 1 FROM students WHERE matric = ?").get(matric) !== undefined;
+  const { rows } = await pool.query("SELECT 1 FROM students WHERE matric = $1", [matric]);
+  return rows.length > 0;
 }
 
-async function updateStudent(matric, patch) {
-  const allowed = ["first_name","last_name","email","phone","department","faculty","level","session",
-    "password_salt","password_hash","photo","fingerprint_credential_id","registered_at"];
+async function updateStudent(matric, patch, client) {
+  const allowed = [
+    "first_name", "last_name", "email", "phone", "department", "faculty", "level", "session",
+    "password_salt", "password_hash", "photo", "fingerprint_credential_id", "registered_at",
+  ];
   const sets = [];
   const vals = [];
-  let n = 0;
+  let i = 1;
   for (const key of allowed) {
     if (patch[key] !== undefined) {
-      sets.push(`${key} = $${++n}`);
+      sets.push(`${key} = $${i}`);
       if (key === "fingerprint_credential_id") {
         vals.push(patch[key] ? encryptData(patch[key]) : null);
       } else {
         vals.push(patch[key]);
       }
+      i++;
     }
   }
   if (!sets.length) return getStudent(matric);
   vals.push(matric);
-  await prepare(`UPDATE students SET ${sets.join(", ")} WHERE matric = $${++n}`).run(...vals);
+  const q = client || pool;
+  await q.query(`UPDATE students SET ${sets.join(", ")} WHERE matric = $${i}`, vals);
   return getStudent(matric);
 }
 
 async function deleteStudent(matric) {
-  await prepare("DELETE FROM students WHERE matric = ?").run(matric);
+  await pool.query("DELETE FROM students WHERE matric = $1", [matric]);
 }
 
 function rowToStudent(r) {
@@ -410,104 +357,114 @@ function rowToStudent(r) {
 
 /* ─────────────────────────────────────────
    COURSES + REGISTRATIONS + EXAM SELECTION
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 async function allCourses() {
-  return prepare("SELECT * FROM course_catalog ORDER BY type, code").all();
+  const { rows } = await pool.query("SELECT * FROM course_catalog ORDER BY type, code");
+  return rows;
 }
 
 async function getCourse(code) {
-  return prepare("SELECT * FROM course_catalog WHERE code = ?").get(code);
+  const { rows } = await pool.query("SELECT * FROM course_catalog WHERE code = $1", [code]);
+  return rows[0] || null;
 }
 
 async function insertCourse({ code, title, unit, type, level }) {
-  await prepare(
-    "INSERT INTO course_catalog (code, title, unit, type, level) VALUES (?, ?, ?, ?, ?)"
-  ).run(code, title, unit, type, level || null);
+  await pool.query(
+    "INSERT INTO course_catalog (code, title, unit, type, level) VALUES ($1, $2, $3, $4, $5)",
+    [code, title, unit, type, level || null]
+  );
   return getCourse(code);
 }
 
 async function updateCourse(code, { title, unit, type }) {
   const sets = [];
   const vals = [];
-  let n = 0;
-  if (title !== undefined) { sets.push(`title = $${++n}`); vals.push(title); }
-  if (unit !== undefined) { sets.push(`unit = $${++n}`); vals.push(unit); }
-  if (type !== undefined) { sets.push(`type = $${++n}`); vals.push(type); }
+  let i = 1;
+  if (title !== undefined) { sets.push(`title = $${i}`); vals.push(title); i++; }
+  if (unit !== undefined) { sets.push(`unit = $${i}`); vals.push(unit); i++; }
+  if (type !== undefined) { sets.push(`type = $${i}`); vals.push(type); i++; }
   if (!sets.length) return getCourse(code);
   vals.push(code);
-  await prepare(`UPDATE course_catalog SET ${sets.join(", ")} WHERE code = $${++n}`).run(...vals);
+  await pool.query(`UPDATE course_catalog SET ${sets.join(", ")} WHERE code = $${i}`, vals);
   return getCourse(code);
 }
 
 async function deleteCourse(code) {
-  await prepare("DELETE FROM course_catalog WHERE code = ?").run(code);
+  await pool.query("DELETE FROM course_catalog WHERE code = $1", [code]);
 }
 
 async function deleteExamSchedule(courseCode) {
-  await prepare("DELETE FROM exam_schedules WHERE course_code = ?").run(courseCode);
+  await pool.query("DELETE FROM exam_schedules WHERE course_code = $1", [courseCode]);
 }
 
 async function getRegisteredCourses(matric) {
-  const r = await pool.query(
-    q(`SELECT cr.type, cr.registered_at AS "registeredAt", c.code, c.title, c.unit
-       FROM course_registrations cr
-       JOIN course_catalog c ON c.code = cr.course_code
-       WHERE cr.matric = ?`),
+  const { rows } = await pool.query(
+    `SELECT cr.type, cr.registered_at AS "registeredAt", c.code, c.title, c.unit
+     FROM course_registrations cr
+     JOIN course_catalog c ON c.code = cr.course_code
+     WHERE cr.matric = $1`,
     [matric]
   );
-  return r.rows;
-}
-
-async function getRegisteredStudents(courseCode) {
-  const r = await pool.query(
-    "SELECT matric FROM course_registrations WHERE course_code = $1",
-    [courseCode]
-  );
-  return r.rows;
+  return rows;
 }
 
 async function replaceRegistrations(matric, courses) {
+  const client = await pool.connect();
   const now = Date.now();
-  await withTransaction(async (client) => {
+  try {
+    await client.query("BEGIN");
     await client.query("DELETE FROM course_registrations WHERE matric = $1", [matric]);
     for (const c of courses) {
       await client.query(
-        "INSERT INTO course_registrations (matric, course_code, type, registered_at) VALUES ($1, $2, $3, $4)",
+        `INSERT INTO course_registrations (matric, course_code, type, registered_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (matric, course_code) DO UPDATE SET type = $3, registered_at = $4`,
         [matric, c.code, c.type, now]
       );
     }
+    // Inline the student update so it joins the transaction
     await client.query("UPDATE students SET registered_at = $1 WHERE matric = $2", [now, matric]);
-  });
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 async function getExamSelection(matric) {
-  return prepare("SELECT * FROM exam_selections WHERE matric = ?").get(matric);
+  const { rows } = await pool.query("SELECT * FROM exam_selections WHERE matric = $1", [matric]);
+  return rows[0] || null;
 }
 
 async function setExamSelection(matric, courseCode) {
-  await prepare(
-    `INSERT INTO exam_selections (matric, course_code, selected_at) VALUES (?, ?, ?)
-     ON CONFLICT (matric) DO UPDATE SET course_code = EXCLUDED.course_code, selected_at = EXCLUDED.selected_at`
-  ).run(matric, courseCode, Date.now());
+  await pool.query(
+    `INSERT INTO exam_selections (matric, course_code, selected_at) VALUES ($1, $2, $3)
+     ON CONFLICT (matric) DO UPDATE SET course_code = $2, selected_at = $3`,
+    [matric, courseCode, Date.now()]
+  );
 }
 
 /* ─────────────────────────────────────────
    EXAM SCHEDULES
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 async function setExamSchedule(courseCode, { date, time, hall }) {
-  await prepare(
+  await pool.query(
     `INSERT INTO exam_schedules (course_code, date, time, hall, updated_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (course_code) DO UPDATE SET date = EXCLUDED.date, time = EXCLUDED.time, hall = EXCLUDED.hall, updated_at = EXCLUDED.updated_at`
-  ).run(courseCode, date, time, hall, Date.now());
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (course_code) DO UPDATE SET date = $2, time = $3, hall = $4, updated_at = $5`,
+    [courseCode, date, time, hall, Date.now()]
+  );
 }
 
 async function getExamSchedule(courseCode) {
-  return prepare("SELECT * FROM exam_schedules WHERE course_code = ?").get(courseCode);
+  const { rows } = await pool.query("SELECT * FROM exam_schedules WHERE course_code = $1", [courseCode]);
+  return rows[0] || null;
 }
 
 async function allExamSchedules() {
-  const rows = await prepare("SELECT * FROM exam_schedules").all();
+  const { rows } = await pool.query("SELECT * FROM exam_schedules");
   const map = {};
   for (const r of rows) map[r.course_code] = { date: r.date, time: r.time, hall: r.hall };
   return map;
@@ -515,10 +472,11 @@ async function allExamSchedules() {
 
 /* ─────────────────────────────────────────
    SEATS — allocated by admin on exam day ONLY
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 async function getSeat(matric) {
-  const r = await prepare("SELECT * FROM seats WHERE matric = ?").get(matric);
-  if (!r) return null;
+  const { rows } = await pool.query("SELECT * FROM seats WHERE matric = $1", [matric]);
+  if (!rows.length) return null;
+  const r = rows[0];
   return {
     hall: r.hall,
     seat: r.seat_number,
@@ -529,26 +487,22 @@ async function getSeat(matric) {
 }
 
 async function allSeats() {
-  return prepare("SELECT * FROM seats").all();
+  const { rows } = await pool.query("SELECT * FROM seats");
+  return rows;
 }
 
 const SEATS_PER_ROW = 10;
 
-/* Exam-day gate for seat allocation: the LATEST fingerprint check for this
-   student must be a pass. The registration photo is shown at the checkpoint
-   for visual confirmation, but identity is proven with the fingerprint
-   scanner. */
 async function hasRecentFingerprintPass(matric) {
-  const latest = await prepare(
-    "SELECT result FROM verification_log WHERE matric = ? AND details LIKE '%Fingerprint%' ORDER BY time DESC LIMIT 1"
-  ).get(matric);
-  return Boolean(latest && latest.result === "pass");
+  const { rows } = await pool.query(
+    `SELECT result FROM verification_log
+     WHERE matric = $1 AND details ILIKE '%Fingerprint%'
+     ORDER BY time DESC LIMIT 1`,
+    [matric]
+  );
+  return Boolean(rows.length && rows[0].result === "pass");
 }
 
-/* Allocate a random available seat for a course+hall. The student cannot
-   know it beforehand and cannot forge it. Runs on one connection inside a
-   transaction with a per-course advisory lock so concurrent approvals for
-   the same course cannot hand out the same seat. */
 async function allocateSeat(matric, courseCode) {
   const existing = await getSeat(matric);
   if (existing) return existing;
@@ -560,25 +514,11 @@ async function allocateSeat(matric, courseCode) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [courseCode]);
-
-    const dup = await client.query("SELECT * FROM seats WHERE matric = $1", [matric]);
-    if (dup.rows[0]) {
-      await client.query("COMMIT");
-      return {
-        hall: dup.rows[0].hall,
-        seat: dup.rows[0].seat_number,
-        row: dup.rows[0].row_number,
-        courseCode: dup.rows[0].course_code,
-        allocatedAt: dup.rows[0].allocated_at,
-      };
-    }
-
-    const occ = await client.query(
+    const { rows: occupiedRows } = await client.query(
       "SELECT seat_number FROM seats WHERE course_code = $1 AND hall = $2",
       [courseCode, hall]
     );
-    const occupied = occ.rows.map((r) => r.seat_number);
+    const occupied = occupiedRows.map((r) => r.seat_number);
 
     const BLOCK_SIZE = 50;
     const TOTAL_SEATS = 400;
@@ -598,19 +538,18 @@ async function allocateSeat(matric, courseCode) {
       }
     }
 
-    if (!seatNumber) {
-      await client.query("ROLLBACK");
-      throw new Error("No seats available in this hall.");
-    }
+    if (!seatNumber) throw new Error("No seats available in this hall.");
     const rowNumber = Math.floor((seatNumber - 1) / SEATS_PER_ROW) + 1;
 
     await client.query(
-      "INSERT INTO seats (matric, course_code, hall, seat_number, row_number, allocated_at) VALUES ($1, $2, $3, $4, $5, $6)",
+      `INSERT INTO seats (matric, course_code, hall, seat_number, row_number, allocated_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (matric, course_code) DO NOTHING`,
       [matric, courseCode, hall, seatNumber, rowNumber, Date.now()]
     );
     await client.query("COMMIT");
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK");
     throw e;
   } finally {
     client.release();
@@ -621,47 +560,50 @@ async function allocateSeat(matric, courseCode) {
 
 /* ─────────────────────────────────────────
    VERIFICATION LOG
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 async function logVerification(matric, result, details, time = Date.now()) {
-  await prepare(
-    "INSERT INTO verification_log (matric, result, details, time) VALUES (?, ?, ?, ?)"
-  ).run(matric, result, details, time);
+  await pool.query(
+    "INSERT INTO verification_log (matric, result, details, time) VALUES ($1, $2, $3, $4)",
+    [matric, result, details, time]
+  );
 }
 
 async function getVerificationLog() {
-  return prepare("SELECT * FROM verification_log ORDER BY time ASC").all();
+  const { rows } = await pool.query("SELECT * FROM verification_log ORDER BY time ASC");
+  return rows;
 }
 
 async function verificationStats() {
-  const rows = await prepare(
+  const { rows } = await pool.query(
     "SELECT result, COUNT(*)::int AS n FROM verification_log GROUP BY result"
-  ).all();
+  );
   const stats = { pass: 0, fail: 0, attendance: 0 };
   for (const r of rows) stats[r.result] = r.n;
   return stats;
 }
 
 async function clearVerificationLog() {
-  const { changes } = await prepare("DELETE FROM verification_log").run();
-  return changes;
+  const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM verification_log");
+  await pool.query("DELETE FROM verification_log");
+  return rows[0].n;
 }
 
 async function clearAllData() {
   const counts = {};
-  await withTransaction(async (client) => {
-    for (const table of ["verification_log", "seats", "exam_schedules", "exam_selections", "carry_overs"]) {
-      const r = await client.query(`DELETE FROM ${table}`);
-      counts[table] = r.rowCount;
-    }
-  });
+  for (const table of ["verification_log", "seats", "exam_schedules", "exam_selections", "carry_overs"]) {
+    const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM ${table}`);
+    await pool.query(`DELETE FROM ${table}`);
+    counts[table] = rows[0].n;
+  }
   return counts;
 }
 
 /* ─────────────────────────────────────────
    ADMIN ACCOUNTS
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 async function getAdmin(email) {
-  return prepare("SELECT * FROM admin_accounts WHERE email = ?").get(email);
+  const { rows } = await pool.query("SELECT * FROM admin_accounts WHERE email = $1", [email]);
+  return rows[0] || null;
 }
 
 async function createAdmin({ email, firstName, lastName, phone, department, password, adminKey }) {
@@ -669,9 +611,11 @@ async function createAdmin({ email, firstName, lastName, phone, department, pass
   const hash = hashPasswordSync(password, salt);
   const accessSalt = randomSaltB64();
   const accessHash = hashPasswordSync(adminKey, accessSalt);
-  await prepare(
-    "INSERT INTO admin_accounts (email, first_name, last_name, phone, department, salt, hash, access_salt, access_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(email, firstName || "", lastName || "", phone || "", department || "", salt, hash, accessSalt, accessHash, Date.now());
+  await pool.query(
+    `INSERT INTO admin_accounts (email, first_name, last_name, phone, department, salt, hash, access_salt, access_hash, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [email, firstName || "", lastName || "", phone || "", department || "", salt, hash, accessSalt, accessHash, Date.now()]
+  );
   return getAdmin(email);
 }
 
@@ -685,23 +629,25 @@ async function verifyAdminCredentials(email, password, adminKey) {
 
 /* ─────────────────────────────────────────
    OTP
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 async function createOtp(matric, code, expiresInMs = 10 * 60 * 1000) {
   const salt = randomSaltB64();
   const hash = hashPasswordSync(code, salt);
-  await prepare(
-    `INSERT INTO otps (matric, salt, hash, expires_at, used) VALUES (?, ?, ?, ?, 0)
-     ON CONFLICT (matric) DO UPDATE SET salt = EXCLUDED.salt, hash = EXCLUDED.hash, expires_at = EXCLUDED.expires_at, used = 0`
-  ).run(matric, salt, hash, Date.now() + expiresInMs);
+  await pool.query(
+    `INSERT INTO otps (matric, salt, hash, expires_at, used) VALUES ($1, $2, $3, $4, 0)
+     ON CONFLICT (matric) DO UPDATE SET salt = $2, hash = $3, expires_at = $4, used = 0`,
+    [matric, salt, hash, Date.now() + expiresInMs]
+  );
 }
 
 async function verifyOtp(matric, code) {
-  const rec = await prepare("SELECT * FROM otps WHERE matric = ?").get(matric);
+  const { rows } = await pool.query("SELECT * FROM otps WHERE matric = $1", [matric]);
+  const rec = rows[0];
   if (!rec) return { ok: false, reason: "No OTP was requested for this matric number." };
   if (rec.used) return { ok: false, reason: "This code has already been used." };
   if (Date.now() > rec.expires_at) return { ok: false, reason: "This code has expired. Please request a new one." };
   if (!verifyPasswordSync(code, rec.salt, rec.hash)) return { ok: false, reason: "Incorrect code." };
-  await prepare("UPDATE otps SET used = 1 WHERE matric = ?").run(matric);
+  await pool.query("UPDATE otps SET used = 1 WHERE matric = $1", [matric]);
   return { ok: true };
 }
 
@@ -712,18 +658,18 @@ function publicStudent(s) {
 }
 
 /* ─────────────────────────────────────────
-    NOTIFICATIONS
-───────────────────────────────────────── */
+   NOTIFICATIONS
+   ───────────────────────────────────────── */
 const mailer = require("./mailer");
 
 const EMAIL_NOTIFICATION_TYPES = ["exam_schedule", "course_upload"];
 
 async function createNotification(matric, type, title, message) {
-  await prepare(
-    "INSERT INTO notifications (matric, type, title, message, read, created_at) VALUES (?, ?, ?, ?, 0, ?)"
-  ).run(matric, type, title, message, Date.now());
+  await pool.query(
+    "INSERT INTO notifications (matric, type, title, message, read, created_at) VALUES ($1, $2, $3, $4, 0, $5)",
+    [matric, type, title, message, Date.now()]
+  );
 
-  // Only send email for important notifications (exam dates and course uploads)
   if (!EMAIL_NOTIFICATION_TYPES.includes(type)) return;
 
   const student = await getStudent(matric);
@@ -751,80 +697,127 @@ async function createNotification(matric, type, title, message) {
 }
 
 async function getNotifications(matric) {
-  return prepare("SELECT * FROM notifications WHERE matric = ? ORDER BY created_at DESC").all(matric);
+  const { rows } = await pool.query(
+    "SELECT * FROM notifications WHERE matric = $1 ORDER BY created_at DESC",
+    [matric]
+  );
+  return rows;
 }
 
 async function getUnreadCount(matric) {
-  const row = await prepare("SELECT COUNT(*)::int AS n FROM notifications WHERE matric = ? AND read = 0").get(matric);
-  return row ? row.n : 0;
+  const { rows } = await pool.query(
+    "SELECT COUNT(*)::int AS n FROM notifications WHERE matric = $1 AND read = 0",
+    [matric]
+  );
+  return rows.length ? rows[0].n : 0;
 }
 
 async function markAsRead(matric, notifId) {
-  await prepare("UPDATE notifications SET read = 1 WHERE id = ? AND matric = ?").run(notifId, matric);
+  await pool.query("UPDATE notifications SET read = 1 WHERE id = $1 AND matric = $2", [notifId, matric]);
 }
 
 async function markAllAsRead(matric) {
-  await prepare("UPDATE notifications SET read = 1 WHERE matric = ? AND read = 0").run(matric);
+  await pool.query("UPDATE notifications SET read = 1 WHERE matric = $1 AND read = 0", [matric]);
 }
 
 async function clearNotifications(matric) {
-  await prepare("DELETE FROM notifications WHERE matric = ?").run(matric);
+  await pool.query("DELETE FROM notifications WHERE matric = $1", [matric]);
 }
 
 async function notifyAllStudents(type, title, message) {
-  const students = await prepare("SELECT matric FROM students").all();
+  const { rows: students } = await pool.query("SELECT matric FROM students");
   const now = Date.now();
-  await withTransaction(async (client) => {
-    for (const s of students) {
-      await client.query(
-        "INSERT INTO notifications (matric, type, title, message, read, created_at) VALUES ($1, $2, $3, $4, 0, $5)",
-        [s.matric, type, title, message, now]
-      );
-    }
-  });
+  for (const s of students) {
+    await pool.query(
+      "INSERT INTO notifications (matric, type, title, message, read, created_at) VALUES ($1, $2, $3, $4, 0, $5)",
+      [s.matric, type, title, message, now]
+    );
+  }
   return students.length;
 }
 
 /* ─────────────────────────────────────────
-    CARRY-OVERS
-───────────────────────────────────────── */
+   CARRY-OVERS
+   ───────────────────────────────────────── */
 async function getCarryOvers(matric) {
-  return prepare(
+  const { rows } = await pool.query(
     `SELECT co.id, co.course_code, co.added_at, c.title, c.unit, c.type
      FROM carry_overs co
      JOIN course_catalog c ON c.code = co.course_code
-     WHERE co.matric = ?
-     ORDER BY co.added_at DESC`
-  ).all(matric);
+     WHERE co.matric = $1
+     ORDER BY co.added_at DESC`,
+    [matric]
+  );
+  return rows;
 }
 
 async function addCarryOver(matric, courseCode) {
-  await prepare(
-    "INSERT INTO carry_overs (matric, course_code, added_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING"
-  ).run(matric, courseCode, Date.now());
+  await pool.query(
+    "INSERT INTO carry_overs (matric, course_code, added_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+    [matric, courseCode, Date.now()]
+  );
 }
 
 async function removeCarryOver(matric, courseCode) {
-  await prepare("DELETE FROM carry_overs WHERE matric = ? AND course_code = ?").run(matric, courseCode);
+  await pool.query("DELETE FROM carry_overs WHERE matric = $1 AND course_code = $2", [matric, courseCode]);
 }
 
-/* ─────────────────────────────────────────
-   STARTUP — schema + seed (runs once per process)
-───────────────────────────────────────── */
-const ready = (async () => {
-  await initSchema();
-  await seedCourses();
-  await seedAdmin();
-})();
+async function getRegistrationsForCourse(courseCode) {
+  const { rows } = await pool.query("SELECT matric FROM course_registrations WHERE course_code = $1", [courseCode]);
+  return rows;
+}
 
-ready.catch((err) => {
-  console.error("DB init failed:", err);
-  process.exit(1);
-});
+async function getRegistrationsBatch(matrics) {
+  if (!matrics.length) return {};
+  const { rows } = await pool.query(
+    `SELECT cr.matric, cr.type, cr.registered_at AS "registeredAt", c.code, c.title, c.unit
+     FROM course_registrations cr
+     JOIN course_catalog c ON c.code = cr.course_code
+     WHERE cr.matric = ANY($1)`,
+    [matrics]
+  );
+  const map = {};
+  for (const r of rows) {
+    if (!map[r.matric]) map[r.matric] = [];
+    map[r.matric].push(r);
+  }
+  return map;
+}
+
+async function getExamSelectionsBatch(matrics) {
+  if (!matrics.length) return {};
+  const { rows } = await pool.query(
+    "SELECT * FROM exam_selections WHERE matric = ANY($1)",
+    [matrics]
+  );
+  const map = {};
+  for (const r of rows) map[r.matric] = r;
+  return map;
+}
+
+async function getSeatsBatch(matrics) {
+  if (!matrics.length) return {};
+  const { rows } = await pool.query("SELECT * FROM seats WHERE matric = ANY($1)", [matrics]);
+  const map = {};
+  for (const r of rows) {
+    map[r.matric] = {
+      hall: r.hall,
+      seat: r.seat_number,
+      row: r.row_number,
+      courseCode: r.course_code,
+      allocatedAt: r.allocated_at,
+    };
+  }
+  return map;
+}
 
 module.exports = {
   pool,
-  ready,
+  init,
+  getRegistrationsForCourse,
+  getRegistrationsBatch,
+  getExamSelectionsBatch,
+  getSeatsBatch,
   hashPasswordSync,
   randomSaltB64,
   verifyPasswordSync,
@@ -841,7 +834,6 @@ module.exports = {
   updateCourse,
   deleteCourse,
   getRegisteredCourses,
-  getRegisteredStudents,
   replaceRegistrations,
   getExamSelection,
   setExamSelection,

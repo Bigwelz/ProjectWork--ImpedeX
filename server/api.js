@@ -1,9 +1,9 @@
-/* =============================================
-   EIPS — Shared REST API (server/api.js)
+﻿/* =============================================
+   EIPS â€” Shared REST API (server/api.js)
    Mounted by BOTH servers so each one exposes
    only the endpoints its audience needs:
-     server/index.js         → :4000 students (student:true)
-     server/admin-server.js  → :4001 admins   (admin:true)
+     server/index.js         â†’ :4000 students (student:true)
+     server/admin-server.js  â†’ :4001 admins   (admin:true)
    Admin endpoints are therefore unreachable
    from the student port, and vice versa.
 ============================================= */
@@ -17,16 +17,16 @@ const crypto = require("node:crypto");
 const db = require("./db");
 
 const APP = {
-  name: "ImpedeX — Exam Impersonation Prevention System",
+  name: "ImpedeX â€” Exam Impersonation Prevention System",
 };
 
 const JWT_SECRET = process.env.EIPS_JWT_SECRET || crypto.randomBytes(32).toString("hex");
 const STUDENT_TOKEN_TTL = "12h";
 const ADMIN_TOKEN_TTL = "4h";
 
-/* ─────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    HELPERS
-───────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function studentToken(matric) {
   return jwt.sign({ role: "student", matric }, JWT_SECRET, { expiresIn: STUDENT_TOKEN_TTL });
 }
@@ -41,7 +41,7 @@ async function authStudent(req, res, next) {
     const payload = jwt.verify(tok, JWT_SECRET);
     if (payload.role !== "student") throw new Error("wrong role");
     req.matric = payload.matric;
-    if (!await db.studentExists(payload.matric)) return res.status(401).json({ error: "Account no longer exists." });
+    if (!(await db.studentExists(payload.matric))) return res.status(401).json({ error: "Account no longer exists." });
     next();
   } catch {
     return res.status(401).json({ error: "Session expired. Please log in again." });
@@ -55,7 +55,7 @@ async function authAdmin(req, res, next) {
     const payload = jwt.verify(tok, JWT_SECRET);
     if (payload.role !== "admin") throw new Error("wrong role");
     req.email = payload.email;
-    if (!await db.getAdmin(payload.email)) return res.status(401).json({ error: "Admin account no longer exists." });
+    if (!(await db.getAdmin(payload.email))) return res.status(401).json({ error: "Admin account no longer exists." });
     next();
   } catch {
     return res.status(401).json({ error: "Session expired. Please log in again." });
@@ -78,16 +78,16 @@ function securityHeaders(req, res, next) {
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     /* connect-src must allow only the local scanner bridge
        (bridge\zkbridge.py, default port 8765) besides same-origin.
-       Everything else stays same-origin — no face/CDN scripts remain. */
+       Everything else stays same-origin â€” no face/CDN scripts remain. */
     res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data:; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:8765 http://localhost:8765;");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=()");
   next();
 }
 
-/* ─────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    RATE LIMITING (in-memory, admin login)
-───────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ipLoginAttempts = new Map();
 const emailConsecutiveFailures = new Map();
 
@@ -161,20 +161,20 @@ function normalizePath(req) {
   return "/" + parts.join("/");
 }
 
-/* Helper: extract level from course code (e.g. IFT502 → 500) */
+/* Helper: extract level from course code (e.g. IFT502 â†’ 500) */
 function courseLevel(code) {
   const m = String(code).match(/\d/);
   return m ? parseInt(m[0], 10) * 100 : 0;
 }
 
-/* ─────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    ADMIN PORTAL COOKIE
    Cookies are scoped to the HOST, not the port, so a cookie set by the
    admin server (:4001) is also sent to the student server (:4000). That is
    how the landing page can tell "this browser just used the admin portal"
    without ever exposing admin data. It can only be issued by a successful
    admin login and is HttpOnly, so student page scripts can't read it.
-───────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const PORTAL_COOKIE = "eips_admin_portal";
 const PORTAL_COOKIE_TTL = 4 * 60 * 60; // matches ADMIN_TOKEN_TTL (4h)
 
@@ -190,53 +190,38 @@ function hasPortalCookie(req) {
   return new RegExp(`(?:^|;\\s*)${PORTAL_COOKIE}=1(?:;|$)`).test(cookies);
 }
 
-/* ─────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    MOUNT
-───────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function mountApi(app, { student = false, admin = false } = {}) {
   app.set("trust proxy", 1); // correct client IP / https detection behind Render, nginx, etc.
   app.use(express.json({ limit: "25mb" })); // registration photos (data URLs) can be large
   app.use(express.urlencoded({ extended: true }));
   app.use(securityHeaders);
 
-  /* Optional CORS — only active when CORS_ALLOWED_ORIGIN is set. Use this
-     if a frontend calls the API directly from its own origin instead of
-     going through the Vercel /api proxy (e.g. set it to the Vercel URL).
-     With the proxy approach below, no CORS headers are needed. */
-  const CORS_ALLOWED_ORIGIN = process.env.CORS_ALLOWED_ORIGIN || "";
-  if (CORS_ALLOWED_ORIGIN) {
-    app.use((req, res, next) => {
-      res.setHeader("Access-Control-Allow-Origin", CORS_ALLOWED_ORIGIN);
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-      if (req.method === "OPTIONS") return res.sendStatus(204);
-      next();
-    });
-  }
-
-  /* ── PUBLIC (both servers) ── */
-  app.get("/api/health", (req, res) => res.json({ ok: true, app: APP.name, db: true }));
+  /* â”€â”€ PUBLIC (both servers) â”€â”€ */
+  app.get("/api/health", async (req, res) => res.json({ ok: true, app: APP.name, db: true }));
 
   /* Tells the calling page whether THIS browser holds a valid admin-portal
-     cookie. Used by the landing page to reveal the Admin Portal button —
+     cookie. Used by the landing page to reveal the Admin Portal button â€”
      it exposes no admin data, only "portal used here recently". */
-  app.get("/api/session/portal", (req, res) => {
+  app.get("/api/session/portal", async (req, res) => {
     res.json({ adminPortal: hasPortalCookie(req) });
   });
 
-  app.get("/api/courses", wrap(async (req, res) => {
-    const rows = await db.allCourses();
-    res.json(rows.map((c) => ({
+  app.get("/api/courses", async (req, res) => {
+    const rows = (await db.allCourses()).map((c) => ({
       code: c.code,
       title: c.title,
       unit: c.unit,
       type: c.type.charAt(0).toUpperCase() + c.type.slice(1),
-    })));
-  }));
+    }));
+    res.json(rows);
+  });
 
-  /* ───────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      STUDENT SERVER ONLY
-  ─────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   if (student) {
     /* STUDENT AUTH */
     app.post(
@@ -261,12 +246,12 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const photo = typeof b.photo === "string" && b.photo.startsWith("data:image/") ? b.photo : null;
         if (!photo) {
           return res.status(400).json({
-            error: "A clear photo is required — it is shown at the exam-day checkpoint.",
+            error: "A clear photo is required â€” it is shown at the exam-day checkpoint.",
           });
         }
 
-        const salt = db.randomSaltB64();
-        const hash = db.hashPasswordSync(password, salt);
+        const salt = await db.randomSaltB64();
+        const hash = await db.hashPasswordSync(password, salt);
 
         await db.createStudent({
           matric,
@@ -299,7 +284,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
         }
         const rec = await db.getStudentRaw(matric);
         if (!rec) return res.status(404).json({ error: "No account found for that matric number. Please register." });
-        if (!db.verifyPasswordSync(password, rec.password_salt, rec.password_hash)) {
+        if (!await db.verifyPasswordSync(password, rec.password_salt, rec.password_hash)) {
           return res.status(401).json({ error: "Incorrect password." });
         }
         res.json({ token: studentToken(matric), student: await db.publicStudent(await db.getStudent(matric)) });
@@ -344,22 +329,22 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const password = String(req.body.password || "");
         if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters long." });
         if (!await db.studentExists(matric)) return res.status(404).json({ error: "No account found for that matric number." });
-        const salt = db.randomSaltB64();
-        const hash = db.hashPasswordSync(password, salt);
+        const salt = await db.randomSaltB64();
+        const hash = await db.hashPasswordSync(password, salt);
         await db.updateStudent(matric, { password_salt: salt, password_hash: hash });
         res.json({ ok: true });
       })
     );
 
     /* STUDENT DATA */
-    app.get("/api/me", authStudent, wrap(async (req, res) => {
+    app.get("/api/me", authStudent, async (req, res) => {
       const s = await db.getStudent(req.matric);
       const pub = await db.publicStudent(s);
       pub.registeredCourses = await db.getRegisteredCourses(s.matric);
       pub.examSelection = await db.getExamSelection(s.matric) || null;
       pub.seat = await db.getSeat(s.matric);
       res.json({ student: pub });
-    }));
+    });
 
     app.post(
       "/api/courses/register",
@@ -371,17 +356,19 @@ function mountApi(app, { student = false, admin = false } = {}) {
           return res.status(400).json({ error: "Select at least one course to register." });
         }
 
-        const normalized = courses.map(async (c) => {
+        const normalized = [];
+        for (const c of courses) {
           const row = await db.getCourse(c.code);
           if (!row) throw new Error(`Unknown course code ${c.code}`);
-          return { code: row.code, title: row.title, unit: row.unit, type: c.type || row.type };
-        });
+          normalized.push({ code: row.code, title: row.title, unit: row.unit, type: c.type || row.type });
+        }
 
-        const carryOverEntries = carryOvers.map(async (code) => {
+        const carryOverEntries = [];
+        for (const code of carryOvers) {
           const row = await db.getCourse(code);
           if (!row) throw new Error(`Unknown course code ${code}`);
-          return { code: row.code, title: row.title, unit: row.unit, type: "carry_over" };
-        });
+          carryOverEntries.push({ code: row.code, title: row.title, unit: row.unit, type: "carry_over" });
+        }
 
         await db.replaceRegistrations(req.matric, [...normalized, ...carryOverEntries]);
 
@@ -431,14 +418,14 @@ function mountApi(app, { student = false, admin = false } = {}) {
           req.matric,
           "biometric_enrollment",
           "Fingerprint Enrolled",
-          "Your fingerprint has been enrolled. On exam day, place your finger on the scanner — the system matches it and shows your record with your allocated seat."
+          "Your fingerprint has been enrolled. On exam day, place your finger on the scanner â€” the system matches it and shows your record with your allocated seat."
         );
 
         res.json({ ok: true });
       })
     );
 
-    app.get("/api/exams", authStudent, wrap(async (req, res) => {
+    app.get("/api/exams", authStudent, async (req, res) => {
       const registered = await db.getRegisteredCourses(req.matric);
       const schedules = await db.allExamSchedules();
       const exams = registered.map((c) => {
@@ -454,9 +441,9 @@ function mountApi(app, { student = false, admin = false } = {}) {
         };
       });
       res.json({ exams });
-    }));
+    });
 
-    app.get("/api/seat", authStudent, wrap(async (req, res) => {
+    app.get("/api/seat", authStudent, async (req, res) => {
       const seat = await db.getSeat(req.matric);
       const selection = await db.getExamSelection(req.matric);
       const schedule = selection ? await db.getExamSchedule(selection.course_code) : null;
@@ -465,29 +452,29 @@ function mountApi(app, { student = false, admin = false } = {}) {
         examCourse: selection ? { code: selection.course_code } : null,
         schedule,
       });
-    }));
+    });
 
     /* NOTIFICATIONS (student) */
-    app.get("/api/notifications", authStudent, wrap(async (req, res) => {
+    app.get("/api/notifications", authStudent, async (req, res) => {
       const notifications = await db.getNotifications(req.matric);
       const unread = await db.getUnreadCount(req.matric);
       res.json({ notifications, unread });
-    }));
+    });
 
-    app.post("/api/notifications/read/:id", authStudent, wrap(async (req, res) => {
+    app.post("/api/notifications/read/:id", authStudent, async (req, res) => {
       await db.markAsRead(req.matric, Number(req.params.id));
       res.json({ ok: true });
-    }));
+    });
 
-    app.post("/api/notifications/read-all", authStudent, wrap(async (req, res) => {
+    app.post("/api/notifications/read-all", authStudent, async (req, res) => {
       await db.markAllAsRead(req.matric);
       res.json({ ok: true });
-    }));
+    });
 
-    app.delete("/api/notifications", authStudent, wrap(async (req, res) => {
+    app.delete("/api/notifications", authStudent, async (req, res) => {
       await db.clearNotifications(req.matric);
       res.json({ ok: true });
-    }));
+    });
 
     /* Student-facing: courses for a given level (used during course registration) */
     app.get(
@@ -534,9 +521,9 @@ function mountApi(app, { student = false, admin = false } = {}) {
     );
   }
 
-  /* ───────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      ADMIN SERVER ONLY
-  ─────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   if (admin) {
     /* ADMIN AUTH */
     app.post(
@@ -570,8 +557,8 @@ function mountApi(app, { student = false, admin = false } = {}) {
       })
     );
 
-    /* Clears the portal cookie (admin logged out → Admin Portal button hides). */
-    app.post("/api/admin/logout", (req, res) => {
+    /* Clears the portal cookie (admin logged out â†’ Admin Portal button hides). */
+    app.post("/api/admin/logout", async (req, res) => {
       res.setHeader("Set-Cookie", portalCookieHeader(req, "", 0));
       res.json({ ok: true });
     });
@@ -625,38 +612,46 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const stats = await db.verificationStats();
         const schedules = await db.allExamSchedules();
         res.json({
-          totalStudents: (await db.allStudents()).length,
+          totalStudents: await db.allStudents().length,
           passed: stats.pass,
           failed: stats.fail,
           attendance: stats.attendance,
           examsScheduled: Object.keys(schedules).length,
-          seatsAllocated: (await db.allSeats()).length,
+          seatsAllocated: await db.allSeats().length,
         });
       })
     );
 
-    app.get("/api/admin/students", authAdmin, wrap(async (req, res) => {
-      const students = (await db.allStudents()).map(async (s) => {
-        const pub = await db.publicStudent(s);
-        pub.registeredCourses = await db.getRegisteredCourses(s.matric);
-        pub.examSelection = await db.getExamSelection(s.matric) || null;
-        pub.seat = await db.getSeat(s.matric);
+    app.get("/api/admin/students", authAdmin, async (req, res) => {
+      const allStudents = await db.allStudents();
+      const matrics = allStudents.map((s) => s.matric);
+      const [regs, sels, seats] = await Promise.all([
+        db.getRegistrationsBatch(matrics),
+        db.getExamSelectionsBatch(matrics),
+        db.getSeatsBatch(matrics),
+      ]);
+      const students = allStudents.map((s) => {
+        const pub = db.publicStudent(s);
+        pub.registeredCourses = regs[s.matric] || [];
+        pub.examSelection = sels[s.matric] || null;
+        pub.seat = seats[s.matric] || null;
         return pub;
       });
       res.json(students);
-    }));
+    });
 
     /* Exam-day 1:N index: every scanner-enrolled ("zk:") fingerprint
        template, decrypted, behind authAdmin only. The checkpoint page sends
        this list to the exam PC's local scanner bridge, which captures one
        live finger and matches it against all of them (the ZK SDK only runs
        on Windows, so matching cannot happen on this server). */
-    app.get("/api/admin/fingerprints", authAdmin, wrap(async (req, res) => {
-      const rows = (await db.allStudents())
+    app.get("/api/admin/fingerprints", authAdmin, async (req, res) => {
+      const all = await db.allStudents();
+      const rows = all
         .map((s) => ({ matric: s.matric, template: s.fingerprintCredentialId }))
         .filter((r) => r.template && r.template.startsWith("zk:"));
       res.json(rows);
-    }));
+    });
 
     app.get(
       "/api/admin/student/:matric",
@@ -682,8 +677,8 @@ function mountApi(app, { student = false, admin = false } = {}) {
         if (!/^\d{11}$/.test(matric)) return res.status(400).json({ error: "Matric number must be exactly 11 digits." });
         if (await db.studentExists(matric)) return res.status(409).json({ error: "A student with this matric number already exists." });
         const tempPassword = Math.random().toString(36).slice(-8) + "A1!";
-        const salt = db.randomSaltB64();
-        const hash = db.hashPasswordSync(tempPassword, salt);
+        const salt = await db.randomSaltB64();
+        const hash = await db.hashPasswordSync(tempPassword, salt);
         await db.createStudent({
           matric,
           firstName: String(b.firstName || "").trim() || "(no name)",
@@ -722,13 +717,13 @@ function mountApi(app, { student = false, admin = false } = {}) {
 
         // Notify students registered for this course
         const course = await db.getCourse(code);
-        const registrations = await db.getRegisteredStudents(code);
+        const registrations = await db.getRegistrationsForCourse(code);
         for (const reg of registrations) {
           await db.createNotification(
             reg.matric,
             "exam_schedule",
             "Exam Date Published",
-            `Exam for ${code} — ${course.title || ""} has been scheduled for ${b.date} at ${b.time} in ${b.hall}.`
+            `Exam for ${code} â€” ${course.title || ""} has been scheduled for ${b.date} at ${b.time} in ${b.hall}.`
           );
         }
 
@@ -774,7 +769,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
       wrap(async (req, res) => {
         const courses = await db.allCourses();
         const schedules = await db.allExamSchedules();
-        const enriched = courses.map((c) => ({
+        const enriched = (await db.allCourses()).map((c) => ({
           ...c,
           level: courseLevel(c.code),
           schedule: schedules[c.code] || null,
@@ -807,7 +802,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
         const count = await db.notifyAllStudents(
           "course_upload",
           "New Course Available",
-          `A new ${type} course ${code} — ${title} (${unit} unit${unit === 1 ? "" : "s"}) has been added to the course catalog.`
+          `A new ${type} course ${code} â€” ${title} (${unit} unit${unit === 1 ? "" : "s"}) has been added to the course catalog.`
         );
 
         res.json({ ok: true, course, notifiedStudents: count });
@@ -864,7 +859,7 @@ function mountApi(app, { student = false, admin = false } = {}) {
 
     /* KEY ANTI-CHEAT FLOW: the ONLY place a seat is created. Admin approves a
        verified student on exam day and the seat is allocated server-side and
-       persisted — the student cannot know it beforehand and cannot forge it. */
+       persisted â€” the student cannot know it beforehand and cannot forge it. */
     app.post(
       "/api/admin/student/:matric/approve",
       authAdmin,
@@ -897,34 +892,38 @@ function mountApi(app, { student = false, admin = false } = {}) {
       })
     );
 
-    app.get("/api/admin/log", authAdmin, wrap(async (req, res) => {
+    app.get("/api/admin/log", authAdmin, async (req, res) => {
       const log = (await db.getVerificationLog()).reverse().map((e) => ({ ...e }));
       res.json(log);
-    }));
+    });
 
-    app.get("/api/admin/seats", authAdmin, wrap(async (req, res) => {
+    app.get("/api/admin/seats", authAdmin, async (req, res) => {
       res.json(await db.allSeats());
-    }));
+    });
 
-    app.get("/api/admin/schedules", authAdmin, wrap(async (req, res) => {
+    app.get("/api/admin/schedules", authAdmin, async (req, res) => {
       res.json(await db.allExamSchedules());
-    }));
+    });
 
-    app.delete("/api/admin/log", authAdmin, wrap(async (req, res) => {
+    app.delete("/api/admin/log", authAdmin, async (req, res) => {
       const cleared = await db.clearVerificationLog();
       res.json({ ok: true, cleared });
-    }));
+    });
 
-    app.delete("/api/admin/all", authAdmin, wrap(async (req, res) => {
+    app.delete("/api/admin/all", authAdmin, async (req, res) => {
       const counts = await db.clearAllData();
       res.json({ ok: true, counts });
-    }));
+    });
   }
 
-  /* Unmatched API paths on this server → JSON 404 (never the static files) */
-  app.use("/api", (req, res) => {
+  /* Unmatched API paths on this server â†’ JSON 404 (never the static files) */
+  app.use("/api", async (req, res) => {
     res.status(404).json({ error: "This endpoint is not available on this server." });
   });
 }
 
 module.exports = { mountApi, normalizePath, APP };
+
+
+
+
